@@ -36,6 +36,24 @@ local function at(x, y, z, rx, ry, rz)
 	return ROOT * CFrame.new(x * S, y * S, z * S) * CFrame.Angles(rx or 0, ry or 0, rz or 0)
 end
 
+-- Pièces arrondies (ellipsoïdes) : le corps, la tête, les pattes, les pétales…
+local ROUND = {}
+for _, n in {
+	"Body", "Belly", "BackPlate", "Flank", "ShoulderPad", "ShoulderStripe", "Chest", "ChestLow",
+	"Skull", "SkullJaw", "Petal", "PetalSpot", "Neck", "Head", "HeadTop", "Snout", "SnoutTip",
+	"MouthRoof", "Jaw", "Chin", "Tongue", "Blaze", "Nose", "Brow", "EyeSocket", "Eye", "Lid",
+	"CheekTuft", "LobeRim", "Lobe", "LobeSpot", "UpperWing", "Forewing", "ArmBand", "MembranePatch",
+	"Thigh", "ThighFront", "Shin", "AnkleFluff", "Foot", "Toe", "Tail", "TailBand", "TailSide",
+} do
+	ROUND[n] = true
+end
+
+-- Profondeur de la face avant d'un ellipsoïde au point (x, y), pour y poser des détails
+local function frontZ(cx, cy, cz, w, h, d, x, y)
+	local u, v = (x - cx) / (w / 2), (y - cy) / (h / 2)
+	return cz - d / 2 * math.sqrt(math.max(0, 1 - u * u - v * v))
+end
+
 local function part(name, kind, sx, sy, sz, cf, color, attachTo)
 	local p = Instance.new(kind)
 	p.Name = name
@@ -50,6 +68,12 @@ local function part(name, kind, sx, sy, sz, cf, color, attachTo)
 	p.CanTouch = false
 	p.Massless = true
 	p.Parent = model
+	local key = (name:gsub("%d$", ""):gsub("[LR]$", ""))
+	if ROUND[key] and kind == "Part" then
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = p
+	end
 	if attachTo then
 		local w = Instance.new("WeldConstraint")
 		w.Part0 = attachTo
@@ -85,18 +109,18 @@ end
 local function skull(x, y, z, attachTo)
 	part("Skull", "Part", 0.9, 0.75, 0.12, at(x, y, z), COLORS.red, attachTo)
 	part("SkullJaw", "Part", 0.55, 0.3, 0.12, at(x, y - 0.5, z), COLORS.red, attachTo)
-	part("SkullEye", "Part", 0.2, 0.22, 0.06, at(x - 0.2, y + 0.05, z - 0.08), COLORS.ink, attachTo)
+	part("SkullEye", "Part", 0.2, 0.22, 0.06, at(x - 0.2, y + 0.05, z - 0.07), COLORS.ink, attachTo)
 	part("SkullEye", "Part", 0.2, 0.22, 0.06, at(x + 0.2, y + 0.05, z - 0.08), COLORS.ink, attachTo)
 	part("SkullNose", "Part", 0.1, 0.12, 0.06, at(x, y - 0.22, z - 0.08), COLORS.ink, attachTo)
 end
 
 ---------------------------------------------------------------- corps
-local body = part("Body", "Part", 4.0, 4.2, 5.0, at(0, 0.1, 0), COLORS.petal)
+local body = part("Body", "Part", 4.6, 4.8, 5.8, at(0, 0.1, 0), COLORS.petal)
 motor("BodyJoint", root, body, at(0, 0, 0))
-part("Belly", "Part", 3.2, 1.0, 4.2, at(0, -2.3, 0.1), COLORS.lilac, body)
-part("BackPlate", "Part", 3.0, 0.5, 4.6, at(0, 2.4, 0.1), COLORS.petal, body)
+part("Belly", "Part", 3.4, 1.4, 4.6, at(0, -1.95, 0.1), COLORS.lilac, body)
+part("BackPlate", "Part", 3.2, 0.9, 4.8, at(0, 2.2, 0.1), COLORS.petal, body)
 for _, sx in { -1, 1 } do
-	part("Flank", "Part", 0.25, 3.4, 4.2, at(sx * 2.05, -0.1, 0.2), COLORS.lilac, body)
+	part("Flank", "Part", 0.6, 3.6, 4.4, at(sx * 2.05, -0.1, 0.2), COLORS.lilac, body)
 	part("FlankStripe", "Part", 0.08, 0.3, 2.0, at(sx * 2.2, 0.9, -0.4, 0.45, 0, 0), COLORS.ink, body)
 	part("FlankStripe", "Part", 0.08, 0.3, 1.6, at(sx * 2.2, -0.2, 0.6, 0.45, 0, 0), COLORS.ink, body)
 	part("FlankStripe", "Part", 0.08, 0.25, 1.2, at(sx * 2.2, -1.2, 1.4, 0.45, 0, 0), COLORS.ink, body)
@@ -110,11 +134,11 @@ for i, z in { -1.2, 0.0, 1.2, 2.3 } do
 	part("BackSpikeEdge", "WedgePart", 0.4, 0.35, 1.1, at(0, 2.8, z + 0.05), COLORS.ink, body)
 end
 
-local chest = part("Chest", "Part", 3.4, 3.2, 0.7, at(0, 0.2, -2.75), COLORS.petal, body)
-part("ChestLow", "Part", 2.6, 1.3, 0.5, at(0, -1.45, -2.9), COLORS.lilac, body)
-skull(-0.75, -0.3, -3.16, chest)
-skull(0.8, -0.85, -3.16, chest)
-skull(0, -1.55, -3.2, chest)
+local chest = part("Chest", "Part", 3.6, 3.8, 1.8, at(0, 0.1, -2.4), COLORS.petal, body)
+part("ChestLow", "Part", 2.8, 1.6, 1.2, at(0, -1.5, -2.5), COLORS.lilac, body)
+for _, s in { { -0.75, -0.3 }, { 0.8, -0.85 }, { 0, -1.3 } } do
+	skull(s[1], s[2], frontZ(0, 0.1, -2.4, 3.6, 3.8, 1.8, s[1], s[2]) - 0.02, chest)
+end
 
 -- collerette de pétales en trois couches autour du cou
 local function petal(cx, cy, z, angle, dist, w, h, attachTo)
@@ -136,52 +160,57 @@ for i = 0, 2 do
 end
 
 ---------------------------------------------------------------- cou et tête
-local neck = part("Neck", "Part", 2.0, 2.0, 2.0, at(0, 2.8, -2.4), COLORS.petal)
+local neck = part("Neck", "Part", 2.3, 2.8, 2.3, at(0, 2.9, -2.4), COLORS.petal)
 motor("NeckJoint", body, neck, at(0, 2.0, -2.4))
 
-local head = part("Head", "Part", 2.8, 2.2, 2.6, at(0, 4.6, -3.0), COLORS.petal)
+local HC = { 0, 4.6, -3.0, 3.0, 2.5, 2.9 } -- centre et taille de la tête
+local function headZ(x, y, off)
+	return frontZ(HC[1], HC[2], HC[3], HC[4], HC[5], HC[6], x, y) - off
+end
+local head = part("Head", "Part", 3.0, 2.5, 2.9, at(0, 4.6, -3.0), COLORS.petal)
 motor("HeadJoint", neck, head, at(0, 3.6, -2.7))
-part("HeadTop", "Part", 2.2, 0.4, 2.2, at(0, 5.85, -3.0), COLORS.petal, head)
-part("Snout", "Part", 1.8, 1.0, 2.2, at(0, 4.3, -5.2), COLORS.petal, head)
-part("SnoutTip", "Part", 1.4, 0.7, 0.5, at(0, 4.25, -6.5), COLORS.petal, head)
-part("MouthRoof", "Part", 1.4, 0.1, 2.0, at(0, 3.82, -5.1), COLORS.redDark, head)
-local jaw = part("Jaw", "Part", 1.6, 0.6, 2.2, at(0, 3.5, -5.0), COLORS.lilac)
+part("HeadTop", "Part", 2.3, 0.8, 2.3, at(0, 5.7, -3.0), COLORS.petal, head)
+part("Snout", "Part", 2.1, 1.35, 2.5, at(0, 4.3, -4.8), COLORS.petal, head)
+part("SnoutTip", "Part", 1.6, 0.95, 0.9, at(0, 4.25, -5.85), COLORS.petal, head)
+part("MouthRoof", "Part", 1.5, 0.1, 2.0, at(0, 3.8, -4.8), COLORS.redDark, head)
+local jaw = part("Jaw", "Part", 1.8, 0.75, 2.3, at(0, 3.55, -4.7), COLORS.lilac)
 motor("JawJoint", head, jaw, at(0, 3.7, -3.9))
-part("Chin", "Part", 1.2, 0.4, 0.6, at(0, 3.35, -6.2), COLORS.lilac, jaw)
-part("Tongue", "Part", 0.8, 0.12, 1.5, at(0, 3.8, -5.1), COLORS.red, jaw)
+part("Chin", "Part", 1.3, 0.5, 0.8, at(0, 3.45, -5.6), COLORS.lilac, jaw)
+part("Tongue", "Part", 0.9, 0.14, 1.5, at(0, 3.85, -4.8), COLORS.red, jaw)
 for _, sx in { -1, 1 } do
-	for _, z in { -5.55, -4.85 } do
-		part("LowerTooth", "WedgePart", 0.16, 0.3, 0.2, at(sx * 0.62, 3.92, z, 0, math.pi, 0), COLORS.claw, jaw)
+	for _, z in { -5.3, -4.7 } do
+		part("LowerTooth", "WedgePart", 0.16, 0.3, 0.2, at(sx * 0.65, 3.95, z, 0, math.pi, 0), COLORS.claw, jaw)
 	end
 end
 for _, sx in { -1, 1 } do
-	for _, z in { -5.9, -5.2, -4.5 } do
-		part("Tooth", "WedgePart", 0.18, 0.35, 0.22, at(sx * 0.65, 3.88, z, 0, math.pi, math.pi), COLORS.claw, head)
+	for _, z in { -5.6, -5.0, -4.4 } do
+		part("Tooth", "WedgePart", 0.18, 0.35, 0.22, at(sx * 0.7, 3.8, z, 0, math.pi, math.pi), COLORS.claw, head)
 	end
 end
-part("Blaze", "Part", 0.6, 0.08, 2.2, at(0, 6.08, -3.0), COLORS.red, head)
-part("Blaze", "Part", 0.6, 0.1, 2.2, at(0, 4.83, -5.2), COLORS.red, head)
-part("Blaze", "Part", 0.6, 0.9, 0.1, at(0, 5.25, -4.33), COLORS.red, head)
-part("BlazeTip", "Part", 0.5, 0.5, 0.1, at(0, 5.62, -4.34, 0, 0, math.pi / 4), COLORS.red, head)
-part("Nose", "Part", 0.9, 0.5, 0.1, at(0, 4.3, -6.78), COLORS.red, head)
-part("Nostril", "Part", 0.16, 0.12, 0.05, at(-0.25, 4.32, -6.84), COLORS.ink, head)
-part("Nostril", "Part", 0.16, 0.12, 0.05, at(0.25, 4.32, -6.84), COLORS.ink, head)
+part("Blaze", "Part", 0.7, 0.14, 2.0, at(0, 6.07, -3.0), COLORS.red, head)
+part("Blaze", "Part", 0.65, 0.14, 2.2, at(0, 4.93, -4.8), COLORS.red, head)
+part("Blaze", "Part", 0.6, 0.9, 0.14, at(0, 5.25, headZ(0, 5.25, 0)), COLORS.red, head)
+part("BlazeTip", "Part", 0.45, 0.45, 0.12, at(0, 5.62, headZ(0, 5.62, 0), 0, 0, math.pi / 4), COLORS.red, head)
+part("Nose", "Part", 0.9, 0.5, 0.14, at(0, 4.35, -6.27), COLORS.red, head)
+part("Nostril", "Part", 0.16, 0.12, 0.05, at(-0.25, 4.37, -6.34), COLORS.ink, head)
+part("Nostril", "Part", 0.16, 0.12, 0.05, at(0.25, 4.37, -6.34), COLORS.ink, head)
 part("Crest", "WedgePart", 0.35, 1.8, 1.6, at(0, 6.95, -2.7), COLORS.red, head)
 part("CrestEdge", "WedgePart", 0.4, 0.5, 1.6, at(0, 6.3, -2.65), COLORS.ink, head)
 
 for _, sx in { -1, 1 } do
 	local side = sx < 0 and "L" or "R"
-	part("Brow", "Part", 1.2, 0.35, 0.6, at(sx * 0.8, 5.3, -4.35, 0, 0, sx * 0.25), COLORS.ink, head)
-	part("EyeSocket", "Part", 0.85, 0.65, 0.06, at(sx * 0.85, 4.7, -4.31), COLORS.ink, head)
-	local eye = part("Eye", "Part", 0.6, 0.45, 0.1, at(sx * 0.85, 4.7, -4.36), COLORS.eye, head)
+	part("Brow", "Part", 1.2, 0.4, 0.6, at(sx * 0.8, 5.3, headZ(sx * 0.8, 5.3, 0.05), 0, 0, sx * 0.25), COLORS.ink, head)
+	local ez0 = headZ(sx * 0.85, 4.7, 0)
+	part("EyeSocket", "Part", 0.85, 0.65, 0.12, at(sx * 0.85, 4.7, ez0), COLORS.ink, head)
+	local eye = part("Eye", "Part", 0.6, 0.45, 0.1, at(sx * 0.85, 4.7, ez0 - 0.05), COLORS.eye, head)
 	eye.Material = Enum.Material.Neon
-	part("Pupil", "Part", 0.14, 0.4, 0.05, at(sx * 0.85, 4.7, -4.42), COLORS.ink, head)
-	local lid = part("Lid" .. side, "Part", 0.66, 0.5, 0.12, at(sx * 0.85, 4.7, -4.45), COLORS.petal, head)
+	part("Pupil", "Part", 0.14, 0.4, 0.05, at(sx * 0.85, 4.7, ez0 - 0.12), COLORS.ink, head)
+	local lid = part("Lid" .. side, "Part", 0.66, 0.5, 0.12, at(sx * 0.85, 4.7, ez0 - 0.14), COLORS.petal, head)
 	lid.Transparency = 1
 	part("CheekTuft", "Part", 0.25, 1.1, 1.3, at(sx * 1.5, 4.0, -3.6, 0.5, 0, 0), COLORS.petal, head)
 	part("CheekTuft", "Part", 0.25, 0.8, 1.0, at(sx * 1.55, 3.7, -3.0, 0.9, 0, 0), COLORS.petal, head)
-	part("CheekMark", "Part", 0.06, 0.5, 0.5, at(sx * 1.43, 4.6, -3.8, math.pi / 4, 0, 0), COLORS.ink, head)
-	part("CheekMark", "Part", 0.06, 0.35, 0.35, at(sx * 1.43, 4.1, -2.4, math.pi / 4, 0, 0), COLORS.red, head)
+	part("CheekMark", "Part", 0.1, 0.5, 0.5, at(sx * 1.27, 4.6, -3.8, math.pi / 4, 0, 0), COLORS.ink, head)
+	part("CheekMark", "Part", 0.1, 0.35, 0.35, at(sx * 1.25, 4.1, -2.4, math.pi / 4, 0, 0), COLORS.red, head)
 	part("SideHorn", "WedgePart", 0.25, 0.9, 0.9, at(sx * 0.9, 6.3, -2.2), COLORS.ink, head)
 
 	-- collerettes en forme d'ailes de papillon : trois lobes cerclés de noir
@@ -264,21 +293,21 @@ end
 for _, sx in { -1, 1 } do
 	local side = sx < 0 and "L" or "R"
 	local x = sx * 1.5
-	local thigh = part("Thigh" .. side, "Part", 1.8, 2.6, 2.2, at(x, -2.5, 0.8), COLORS.red)
+	local thigh = part("Thigh" .. side, "Part", 2.0, 2.8, 2.4, at(x, -2.5, 0.8), COLORS.red)
 	motor("Hip" .. side, body, thigh, at(sx * 1.4, -1.6, 0.8))
-	part("ThighStripe", "Part", 0.15, 0.3, 1.9, at(x + sx * 0.92, -2.1, 0.8, 0.4, 0, 0), COLORS.ink, thigh)
-	part("ThighStripe", "Part", 0.15, 0.3, 1.6, at(x + sx * 0.92, -2.9, 0.9, -0.4, 0, 0), COLORS.ink, thigh)
-	part("ThighPatch", "Part", 0.15, 0.7, 0.7, at(x + sx * 0.92, -1.6, 0.3, math.pi / 4, 0, 0), COLORS.petal, thigh)
-	part("ThighFront", "Part", 1.4, 1.6, 0.15, at(x, -2.5, -0.35), COLORS.ink, thigh)
-	skull(x, -2.2, -0.45, thigh)
+	part("ThighStripe", "Part", 0.15, 0.3, 1.9, at(x + sx * 0.97, -2.1, 0.8, 0.4, 0, 0), COLORS.ink, thigh)
+	part("ThighStripe", "Part", 0.15, 0.3, 1.6, at(x + sx * 0.97, -2.9, 0.9, -0.4, 0, 0), COLORS.ink, thigh)
+	part("ThighPatch", "Part", 0.15, 0.7, 0.7, at(x + sx * 0.85, -1.7, 0.3, math.pi / 4, 0, 0), COLORS.petal, thigh)
+	part("ThighFront", "Part", 1.4, 1.8, 0.2, at(x, -2.6, -0.36), COLORS.ink, thigh)
+	skull(x, -2.2, frontZ(x, -2.5, 0.8, 2.0, 2.8, 2.4, x, -2.2) - 0.04, thigh)
 
-	local shin = part("Shin" .. side, "Part", 1.0, 0.9, 1.0, at(x, -4.1, 1.0), COLORS.ink)
+	local shin = part("Shin" .. side, "Part", 1.1, 1.3, 1.1, at(x, -4.1, 1.0), COLORS.ink)
 	motor("Knee" .. side, thigh, shin, at(x, -3.7, 0.9))
 	part("AnkleFluff", "Part", 1.4, 0.45, 1.4, at(x, -3.8, 0.95, 0, math.pi / 4, 0), COLORS.petal, shin)
-	part("Foot", "Part", 1.7, 0.5, 2.2, at(x, -4.75, 0.6), COLORS.ink, shin)
+	part("Foot", "Part", 1.8, 0.7, 2.4, at(x, -4.65, 0.5), COLORS.ink, shin)
 	part("HeelSpur", "WedgePart", 0.3, 0.7, 0.8, at(x, -4.3, 2.05, 0, math.pi, 0), COLORS.ink, shin)
 	for _, dx in { -0.55, 0, 0.55 } do
-		part("Toe", "Part", 0.4, 0.35, 0.5, at(x + dx, -4.85, -0.6), COLORS.ink, shin)
+		part("Toe", "Part", 0.5, 0.45, 0.8, at(x + dx, -4.8, -0.55), COLORS.ink, shin)
 		part("Claw", "WedgePart", 0.3, 0.45, 0.8, at(x + dx, -4.78, -1.1), COLORS.claw, shin)
 	end
 end
@@ -288,7 +317,7 @@ local tailSizes = { { 1.8, 1.5 }, { 1.5, 1.25 }, { 1.2, 1.0 }, { 0.9, 0.8 }, { 0
 local prev = body
 for k, sz in tailSizes do
 	local z, y = 3.6 + (k - 1) * 2.3, -0.9 - (k - 1) * 0.22
-	local seg = part("Tail" .. k, "Part", sz[1], sz[2], 2.4, at(0, y, z), COLORS.lilac)
+	local seg = part("Tail" .. k, "Part", sz[1], sz[2], 3.2, at(0, y, z), COLORS.lilac)
 	motor("Tail" .. k, prev, seg, at(0, y + 0.05, z - 1.15))
 	part("TailBand", "Part", sz[1] + 0.05, sz[2] + 0.05, 0.3, at(0, y, z - 0.4), k % 2 == 1 and COLORS.ink or COLORS.red, seg)
 	part("TailSpike", "WedgePart", 0.25, 0.6, 0.9, at(0, y + sz[2] / 2 + 0.3, z + 0.3), COLORS.red, seg)

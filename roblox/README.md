@@ -1,10 +1,10 @@
 # Kirasa pour Roblox (low poly)
 
-Kirasa est construite avec environ 340 pièces Roblox (Parts et WedgeParts) : pas de mesh à importer.
+Kirasa est construite avec environ 340 pièces Roblox. Le corps, la tête, les pattes, la queue, les pétales et les collerettes sont arrondis (ellipsoïdes), et les ailes gardent leurs lames pointues : pas de mesh à importer.
 Elle est animée : **repos**, **marche**, **décollage**, **vol** (battements et vol plané), **atterrissage**.
 Au repos, elle fait des actions au hasard : **rugir** (elle ouvre la gueule), **s'étirer** (avec un bâillement), **regarder autour d'elle**, **secouer la tête**.
 
-![Aperçu : rugissement, marche, décollage, vol, atterrissage](apercu.png)
+![Aperçu : repos, rugissement, marche, vol](apercu.png)
 
 Le bloc jaune sur l'aperçu a la taille d'un avatar Roblox (5 studs).
 
