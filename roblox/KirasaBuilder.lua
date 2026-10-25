@@ -4,7 +4,7 @@
 -- Change SCALE pour un dragon plus petit ou plus grand, et COLORS pour changer ses couleurs.
 
 local SCALE = 2
-local THICK = 0.05 -- épaisseur des facettes
+local THICK = 0.05 -- épaisseur des facettes plates (pétales, membranes)
 
 local S = SCALE
 local COLORS = {
@@ -90,8 +90,10 @@ local function bone(name, x, y, z)
 end
 
 ---------------------------------------------------------------- facettes
--- Un triangle quelconque fait de deux WedgeParts (méthode classique de Roblox)
-local function tri(a, b, c, color, attachTo)
+-- Un triangle quelconque fait de deux WedgeParts (méthode classique de Roblox).
+-- Avec un point « inside », la facette est épaissie vers l'intérieur du volume :
+-- sa face extérieure reste sur le triangle et les facettes voisines se recouvrent sans fente.
+local function tri(a, b, c, color, attachTo, inside, depth)
 	a, b, c = a * S, b * S, c * S
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
@@ -110,10 +112,16 @@ local function tri(a, b, c, color, attachTo)
 	local back = bc.Unit
 	local height = math.abs(ab:Dot(up))
 	local t = THICK * S
+	local shift = Vector3.zero
+	if inside then
+		t = depth * S
+		local inward = (inside * S - a):Dot(right) > 0 and right or -right
+		shift = inward * (t / 2)
+	end
 	newPart("Facet", "WedgePart", Vector3.new(t, height, math.abs(ab:Dot(back))),
-		ROOT * CFrame.fromMatrix((a + b) / 2, right, up, back), color, attachTo)
+		ROOT * CFrame.fromMatrix((a + b) / 2 + shift, right, up, back), color, attachTo)
 	newPart("Facet", "WedgePart", Vector3.new(t, height, math.abs(ac:Dot(back))),
-		ROOT * CFrame.fromMatrix((a + c) / 2, -right, up, -back), color, attachTo)
+		ROOT * CFrame.fromMatrix((a + c) / 2 + shift, -right, up, -back), color, attachTo)
 end
 
 local function ring(x, y, z, w, h)
@@ -141,11 +149,13 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 		return math.sin((k + phase + 0.5) / sides * math.pi * 2)
 	end
 	for i = 1, #rings - 1 do
+		local inside = (rings[i].p + rings[i + 1].p) / 2
+		local depth = math.min(0.25, 0.6 * math.min(rings[i].w, rings[i].h, rings[i + 1].w, rings[i + 1].h))
 		for k = 0, sides - 1 do
 			local k2 = (k + 1) % sides
 			local col = paint(i, face(k))
-			tri(verts[i][k], verts[i][k2], verts[i + 1][k2], col, attachTo)
-			tri(verts[i][k], verts[i + 1][k2], verts[i + 1][k], col, attachTo)
+			tri(verts[i][k], verts[i][k2], verts[i + 1][k2], col, attachTo, inside, depth)
+			tri(verts[i][k], verts[i + 1][k2], verts[i + 1][k], col, attachTo, inside, depth)
 		end
 	end
 	if tip == false then
@@ -154,7 +164,8 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 	local last = frames[#rings]
 	local apex = last.p + last.t * (tip or 0)
 	for k = 0, sides - 1 do
-		tri(verts[#rings][k], verts[#rings][(k + 1) % sides], apex, paint(#rings, face(k)), attachTo)
+		tri(verts[#rings][k], verts[#rings][(k + 1) % sides], apex, paint(#rings, face(k)), attachTo,
+			last.p - last.t * 0.05, math.min(0.2, 0.5 * math.min(last.w, last.h)))
 	end
 	return frames
 end
@@ -174,7 +185,7 @@ local function spike(attachTo, from, to, w, color, tipColor)
 		pts[k] = from + right * (math.cos(th) * w) + up * (math.sin(th) * w)
 	end
 	for k = 0, 2 do
-		tri(pts[k], pts[(k + 1) % 3], to, k == 1 and tipColor or color, attachTo)
+		tri(pts[k], pts[(k + 1) % 3], to, k == 1 and tipColor or color, attachTo, from + (to - from) * 0.2, w * 0.6)
 	end
 end
 
@@ -462,13 +473,6 @@ tri(tipP, tipP + V(0, 0, 3.0), tipP + V(0, -0.7, 1.2), COLORS.petal, prev)
 tri(tipP + V(0, 0, 0.4), tipP + V(0, 0.5, 1.3), tipP + V(0, -0.35, 1.2), COLORS.red, prev)
 
 ---------------------------------------------------------------- finitions
-local outline = Instance.new("Highlight")
-outline.FillTransparency = 1
-outline.OutlineColor = COLORS.ink
-outline.OutlineTransparency = 0
-outline.DepthMode = Enum.HighlightDepthMode.Occluded
-outline.Parent = model
-
 model:SetAttribute("Scale", S)
 model:SetAttribute("AutoWander", true)
 model:SetAttribute("Mode", "Idle")
