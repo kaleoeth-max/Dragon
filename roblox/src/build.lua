@@ -13,6 +13,7 @@ local COLORS = {
 	ink = Color3.fromRGB(24, 18, 36),
 	claw = Color3.fromRGB(246, 243, 255),
 	eye = Color3.fromRGB(255, 123, 28),
+	redDark = Color3.fromRGB(90, 8, 24),
 }
 
 local old = workspace:FindFirstChild("Kirasa")
@@ -143,8 +144,16 @@ motor("HeadJoint", neck, head, at(0, 3.6, -2.7))
 part("HeadTop", "Part", 2.2, 0.4, 2.2, at(0, 5.85, -3.0), COLORS.petal, head)
 part("Snout", "Part", 1.8, 1.0, 2.2, at(0, 4.3, -5.2), COLORS.petal, head)
 part("SnoutTip", "Part", 1.4, 0.7, 0.5, at(0, 4.25, -6.5), COLORS.petal, head)
-part("Jaw", "Part", 1.6, 0.6, 2.2, at(0, 3.5, -5.0), COLORS.lilac, head)
-part("Chin", "Part", 1.2, 0.4, 0.6, at(0, 3.35, -6.2), COLORS.lilac, head)
+part("MouthRoof", "Part", 1.4, 0.1, 2.0, at(0, 3.82, -5.1), COLORS.redDark, head)
+local jaw = part("Jaw", "Part", 1.6, 0.6, 2.2, at(0, 3.5, -5.0), COLORS.lilac)
+motor("JawJoint", head, jaw, at(0, 3.7, -3.9))
+part("Chin", "Part", 1.2, 0.4, 0.6, at(0, 3.35, -6.2), COLORS.lilac, jaw)
+part("Tongue", "Part", 0.8, 0.12, 1.5, at(0, 3.8, -5.1), COLORS.red, jaw)
+for _, sx in { -1, 1 } do
+	for _, z in { -5.55, -4.85 } do
+		part("LowerTooth", "WedgePart", 0.16, 0.3, 0.2, at(sx * 0.62, 3.92, z, 0, math.pi, 0), COLORS.claw, jaw)
+	end
+end
 for _, sx in { -1, 1 } do
 	for _, z in { -5.9, -5.2, -4.5 } do
 		part("Tooth", "WedgePart", 0.18, 0.35, 0.22, at(sx * 0.65, 3.88, z, 0, math.pi, math.pi), COLORS.claw, head)
@@ -306,13 +315,25 @@ model:SetAttribute("FlySpeed", 18 * S)
 model:SetAttribute("WanderRadius", 40 * S)
 model:SetAttribute("FlyHeight", 8)
 
-local animate = Instance.new("Script")
-animate.Name = "KirasaAnimate"
-animate.Source = [==[
---@@ANIMATE@@
+model:SetAttribute("PlayAction", "")
+model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+
+-- le serveur décide où elle va, chaque joueur calcule l'animation chez lui
+local brain = Instance.new("Script")
+brain.Name = "KirasaBrain"
+brain.Source = [==[
+--@@BRAIN@@
 ]==]
-animate.Parent = model
+brain.Parent = model
+
+local pose = Instance.new("Script")
+pose.Name = "KirasaPose"
+pose.RunContext = Enum.RunContext.Client
+pose.Source = [==[
+--@@POSE@@
+]==]
+pose.Parent = model
 
 model.Parent = workspace
 game:GetService("Selection"):Set({ model })
-print("Kirasa est prête ! Lance le jeu (Play) pour voir ses animations.")
+print("Kirasa est prête ! Lance le jeu avec Play (pas Run) pour voir ses animations.")
