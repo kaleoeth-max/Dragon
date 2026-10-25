@@ -5,6 +5,8 @@ Elle est animée par un script : **repos**, **marche** et **vol**.
 
 ![Aperçu : repos, marche, vol](apercu.png)
 
+Le bloc jaune sur l'aperçu a la taille d'un avatar Roblox (5 studs).
+
 ## Installation (Roblox Studio sur ordinateur)
 
 1. Ouvre ton jeu dans **Roblox Studio**.
@@ -24,7 +26,7 @@ Sélectionne le modèle `Kirasa` dans l'Explorer, puis change ses **attributs** 
 | `WanderRadius` | Distance maximale autour de son point de départ. |
 | `FlyHeight` | Hauteur de vol. |
 
-Pour un dragon plus grand ou plus petit, change `SCALE` en haut de `KirasaBuilder.lua` avant de le coller.
+Kirasa mesure environ 20 studs de haut (`SCALE = 2`). Pour un dragon plus grand ou plus petit, change `SCALE` en haut de `KirasaBuilder.lua` avant de le coller.
 
 ## Fichiers
 

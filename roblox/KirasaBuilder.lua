@@ -3,7 +3,7 @@
 -- colle tout ce fichier, puis appuie sur Entrée. Le dragon apparaît devant la caméra.
 -- Change SCALE pour un dragon plus petit ou plus grand.
 
-local SCALE = 1
+local SCALE = 2
 
 local S = SCALE
 local COLORS = {
@@ -142,11 +142,11 @@ for _, sx in { -1, 1 } do
 	local ear = part("Ear" .. side, "Part", 0.3, 0.3, 0.3, atHead(sx * 1.1, 4.7, -2.4), COLORS.petal)
 	ear.Transparency = 1
 	motor("EarJoint" .. side, head, ear, atHead(sx * 1.1, 4.7, -2.4))
-	part("Lobe", "Part", 2.0, 2.6, 0.25, atHead(sx * 2.0, 6.0, -2.4, 0, 0, -sx * 0.6), COLORS.petal, ear)
-	part("LobeSpot", "Part", 1.1, 1.5, 0.29, atHead(sx * 2.15, 6.2, -2.4, 0, 0, -sx * 0.6), COLORS.red, ear)
-	part("LobeTip", "Part", 0.35, 0.35, 0.3, atHead(sx * 2.75, 7.15, -2.4, 0, 0, math.pi / 4), COLORS.ink, ear)
-	part("Lobe", "Part", 1.6, 2.0, 0.25, atHead(sx * 2.5, 4.6, -2.3, 0, 0, -sx * 1.35), COLORS.petal, ear)
-	part("LobeSpot", "Part", 0.85, 1.1, 0.29, atHead(sx * 2.6, 4.62, -2.3, 0, 0, -sx * 1.35), COLORS.red, ear)
+	part("Lobe", "Part", 2.7, 3.5, 0.25, atHead(sx * 2.3, 6.45, -2.4, 0, 0, -sx * 0.6), COLORS.petal, ear)
+	part("LobeSpot", "Part", 1.5, 2.0, 0.29, atHead(sx * 2.5, 6.7, -2.4, 0, 0, -sx * 0.6), COLORS.red, ear)
+	part("LobeTip", "Part", 0.45, 0.45, 0.3, atHead(sx * 3.3, 8.0, -2.4, 0, 0, math.pi / 4), COLORS.ink, ear)
+	part("Lobe", "Part", 2.2, 2.7, 0.25, atHead(sx * 3.0, 4.55, -2.3, 0, 0, -sx * 1.35), COLORS.petal, ear)
+	part("LobeSpot", "Part", 1.15, 1.5, 0.29, atHead(sx * 3.1, 4.6, -2.3, 0, 0, -sx * 1.35), COLORS.red, ear)
 end
 
 ---------------------------------------------------------------- ailes
@@ -157,22 +157,24 @@ for _, sx in { -1, 1 } do
 		return sh.X + sx * dx, sh.Y + dy, sh.Z + dz
 	end
 
-	local arm = part("UpperWing" .. side, "Part", 3.0, 0.6, 0.6, at(w(1.5, 0, 0)), COLORS.red)
+	local arm = part("UpperWing" .. side, "Part", 3.0, 0.9, 0.9, at(w(1.5, 0, 0)), COLORS.red)
 	motor("Shoulder" .. side, body, arm, at(w(0, 0, 0)))
-	part("ArmBand", "Part", 0.2, 0.64, 0.64, at(w(1.0, 0, 0)), COLORS.ink, arm)
-	part("ArmBand", "Part", 0.2, 0.64, 0.64, at(w(2.0, 0, 0)), COLORS.ink, arm)
-	part("Membrane", "Part", 3.2, 2.6, 0.12, at(w(1.7, -1.45, 0.05)), COLORS.lilac, arm)
+	part("ArmBand", "Part", 0.25, 0.95, 0.95, at(w(1.0, 0, 0)), COLORS.ink, arm)
+	part("ArmBand", "Part", 0.25, 0.95, 0.95, at(w(2.0, 0, 0)), COLORS.ink, arm)
+	part("Membrane", "Part", 3.4, 4.2, 0.15, at(w(1.7, -2.3, 0.05)), COLORS.lilac, arm)
+	part("MembraneStripe", "Part", 2.6, 0.35, 0.19, at(w(1.9, -3.4, 0.05)), COLORS.ink, arm)
 
-	local fore = part("Forewing" .. side, "Part", 3.6, 0.45, 0.45, at(w(4.8, 0, 0)), COLORS.red)
+	local fore = part("Forewing" .. side, "Part", 3.6, 0.7, 0.7, at(w(4.8, 0, 0)), COLORS.red)
 	motor("Elbow" .. side, arm, fore, at(w(3.0, 0, 0)))
-	part("ArmBand", "Part", 0.2, 0.49, 0.49, at(w(4.2, 0, 0)), COLORS.ink, fore)
-	part("Membrane", "Part", 2.8, 2.0, 0.12, at(w(4.4, -1.2, 0.05)), COLORS.lilac, fore)
+	part("ArmBand", "Part", 0.25, 0.75, 0.75, at(w(4.2, 0, 0)), COLORS.ink, fore)
+	part("Membrane", "Part", 3.2, 3.6, 0.15, at(w(4.4, -2.0, 0.05)), COLORS.lilac, fore)
+	part("MembraneStripe", "Part", 2.4, 0.35, 0.19, at(w(4.5, -3.0, 0.05)), COLORS.ink, fore)
 	part("WristClaw", "Part", 0.25, 0.9, 0.25, at(w(6.6, 0.5, 0)), COLORS.claw, fore)
 
 	-- longues plumes en lames, qui pendent vers l'extérieur (le script les met à plat en vol)
 	for i = 0, 3 do
 		local a = math.rad(15 + i * 18)
-		local L, W = 8.6 - i * 1.3, 1.3
+		local L, W = 12.5 - i * 1.6, 2.2
 		local o = Vector3.new(w(6.4 - i * 1.1, -0.15, 0.06 * i))
 		local d = Vector3.new(sx * math.cos(a), -math.sin(a), 0)
 		local vX = Vector3.new(0, 0, sx)
