@@ -8,6 +8,7 @@
 local COLORS = {
 	back = Color3.fromRGB(150, 138, 208), -- dos
 	belly = Color3.fromRGB(238, 234, 252), -- ventre, gorge, dessous des ailes
+	bellyShade = Color3.fromRGB(214, 208, 240), -- une écaille du ventre sur deux
 	petal = Color3.fromRGB(236, 231, 251),
 	lilac = Color3.fromRGB(185, 175, 226),
 	red = Color3.fromRGB(211, 18, 46),

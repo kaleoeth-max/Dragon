@@ -10,6 +10,7 @@ local S = SCALE
 local COLORS = {
 	back = Color3.fromRGB(150, 138, 208), -- dos
 	belly = Color3.fromRGB(238, 234, 252), -- ventre, gorge, dessous des ailes
+	bellyShade = Color3.fromRGB(214, 208, 240), -- une écaille du ventre sur deux
 	petal = Color3.fromRGB(236, 231, 251),
 	lilac = Color3.fromRGB(185, 175, 226),
 	red = Color3.fromRGB(211, 18, 46),
@@ -42,6 +43,9 @@ if EXPORT then
 	ROOT = CFrame.new()
 	EXPORT.colors = COLORS
 end
+-- Le maillage 3D est en haute définition (plus d'anneaux, de faces, de relief et d'épines).
+-- La version en pièces reste simple pour ne pas dépasser quelques milliers de pièces.
+local HIGH = EXPORT ~= nil
 
 local function V(x, y, z)
 	return Vector3.new(x, y, z)
@@ -142,7 +146,40 @@ end
 -- Tube à facettes : des anneaux reliés par des triangles, avec une pointe au bout.
 -- paint(i, face) donne la couleur d'une face : i = numéro du tronçon,
 -- face = 1 sur le dessus (dos), -1 dessous (ventre), 0 sur les côtés.
+local function hash(a, b)
+	local x = math.sin(a * 12.9898 + b * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+
+-- Haute définition : anneaux intermédiaires le long d'une courbe douce (Catmull-Rom)
+local function refine(rings, steps)
+	local out, src = {}, {}
+	local n = #rings
+	for i = 1, n - 1 do
+		local p0 = rings[math.max(1, i - 1)].p
+		local p1, p2 = rings[i].p, rings[i + 1].p
+		local p3 = rings[math.min(n, i + 2)].p
+		local a, b = rings[i], rings[i + 1]
+		for s = 0, steps - 1 do
+			local t = s / steps
+			local p = (p1 * 2 + (p2 - p0) * t + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * (t * t)
+				+ (p1 * 3 - p0 - p2 * 3 + p3) * (t * t * t)) * 0.5
+			table.insert(out, { p = p, w = a.w + (b.w - a.w) * t, h = a.h + (b.h - a.h) * t })
+			table.insert(src, { i, s })
+		end
+	end
+	table.insert(out, rings[n])
+	table.insert(src, { n, 0 })
+	return out, src
+end
+
 local function loft(attachTo, rings, sides, ref, paint, tip)
+	local nOrig, src = #rings, nil
+	local relief = HIGH and math.min(rings[1].w, rings[1].h) > 0.25
+	if HIGH then
+		rings, src = refine(rings, 3)
+		sides += math.floor(sides / 2)
+	end
 	local phase = (sides / 4 - 0.5) % 1 -- une face pile sur le dessus
 	local verts, frames = {}, {}
 	for i, r in rings do
@@ -153,32 +190,57 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 		verts[i] = {}
 		for k = 0, sides - 1 do
 			local th = (k + phase) / sides * math.pi * 2
-			verts[i][k] = r.p + right * (math.cos(th) * r.w) + up * (math.sin(th) * r.h)
+			local bump = 1
+			if relief then
+				-- petites irrégularités sculptées, et écailles du ventre un anneau sur deux
+				bump = 1 + (hash(i, k) - 0.5) * 0.08
+				if math.sin(th) < -0.5 and i % 2 == 0 then
+					bump += 0.05
+				end
+			end
+			verts[i][k] = r.p + right * (math.cos(th) * r.w * bump) + up * (math.sin(th) * r.h * bump)
 		end
 	end
 	local function face(k)
 		return math.sin((k + phase + 0.5) / sides * math.pi * 2)
+	end
+	local function colorAt(i, k)
+		local col = paint(src and src[i][1] or i, face(k))
+		if HIGH and col == COLORS.belly and i % 2 == 0 then
+			col = COLORS.bellyShade
+		end
+		return col
+	end
+	-- les appelants utilisent les anneaux d'origine (pour placer épines et détails)
+	local origFrames = frames
+	if src then
+		origFrames = {}
+		for j, sj in src do
+			if sj[2] == 0 then
+				origFrames[sj[1]] = frames[j]
+			end
+		end
 	end
 	for i = 1, #rings - 1 do
 		local inside = (rings[i].p + rings[i + 1].p) / 2
 		local depth = math.min(0.25, 0.6 * math.min(rings[i].w, rings[i].h, rings[i + 1].w, rings[i + 1].h))
 		for k = 0, sides - 1 do
 			local k2 = (k + 1) % sides
-			local col = paint(i, face(k))
+			local col = colorAt(i, k)
 			tri(verts[i][k], verts[i][k2], verts[i + 1][k2], col, attachTo, inside, depth)
 			tri(verts[i][k], verts[i + 1][k2], verts[i + 1][k], col, attachTo, inside, depth)
 		end
 	end
 	if tip == false then
-		return frames -- bout caché dans la pièce suivante
+		return origFrames -- bout caché dans la pièce suivante
 	end
 	local last = frames[#rings]
 	local apex = last.p + last.t * (tip or 0)
 	for k = 0, sides - 1 do
-		tri(verts[#rings][k], verts[#rings][(k + 1) % sides], apex, paint(#rings, face(k)), attachTo,
+		tri(verts[#rings][k], verts[#rings][(k + 1) % sides], apex, paint(nOrig, face(k)), attachTo,
 			last.p - last.t * 0.05, math.min(0.2, 0.5 * math.min(last.w, last.h)))
 	end
-	return frames
+	return origFrames
 end
 
 local function refFor(dir)
@@ -214,6 +276,24 @@ local function plate(attachTo, cx, cy, cz, rx, ry, rot, n, color)
 	end
 end
 
+-- Rangée d'épines le long d'un tube, entre les anneaux « from » et « to » (numéros d'origine).
+-- lean = -1 : penchées vers le début du tube, 1 : vers la fin.
+local function spikeRow(attachTo, frames, from, to, count, size, lean, colors)
+	for j = 0, count - 1 do
+		local u = from + (to - from) * (j + 0.5) / count
+		local i = math.min(math.floor(u), #frames - 1)
+		local t = u - i
+		local a, b = frames[i], frames[i + 1]
+		local p = a.p + (b.p - a.p) * t
+		local up = (a.up + (b.up - a.up) * t).Unit
+		local dir = (a.t + (b.t - a.t) * t).Unit
+		local h = a.h + (b.h - a.h) * t
+		local len = size * (0.75 + 0.25 * math.sin(j * 1.7))
+		local base = p + up * (h * 0.92)
+		spike(attachTo, base, base + up * len + dir * (lean * len * 0.6), len * 0.3, colors[j % #colors + 1], COLORS.ink)
+	end
+end
+
 -- Racine invisible : c'est elle que le script déplace
 local root = part("Root", "Part", 2, 2, 2, at(0, 0, 0), COLORS.ink)
 root.Transparency = 1
@@ -243,10 +323,14 @@ local torso = loft(body, {
 	end
 	return COLORS.back
 end, false)
-for i = 2, 5 do
-	local fr = torso[i]
-	local top = fr.p + fr.up * fr.h
-	spike(body, top, top + fr.up * (0.9 - i * 0.08) + fr.t * -0.5, 0.22, i % 2 == 0 and COLORS.red or COLORS.ink, COLORS.ink)
+if HIGH then
+	spikeRow(body, torso, 1.3, 5.6, 9, 0.75, -1, { COLORS.red, COLORS.ink, COLORS.petal })
+else
+	for i = 2, 5 do
+		local fr = torso[i]
+		local top = fr.p + fr.up * fr.h
+		spike(body, top, top + fr.up * (0.9 - i * 0.08) + fr.t * -0.5, 0.22, i % 2 == 0 and COLORS.red or COLORS.ink, COLORS.ink)
+	end
 end
 
 -- collerette de pétales sous la gorge
@@ -254,7 +338,7 @@ for i = 0, 4 do
 	local a = -1.2 + i * 0.6
 	local x, y = math.sin(a) * 0.95, 1.75 - math.cos(a) * 0.75
 	plate(body, x, y, -2.25, 0.42, 0.6, a, 5, COLORS.petal)
-	plate(body, x * 1.05, y - 0.08, -2.3, 0.2, 0.28, a, 4, COLORS.red)
+	plate(body, x * 1.05, y - 0.08, -2.4, 0.2, 0.28, a, 4, COLORS.red)
 end
 
 ---------------------------------------------------------------- cou et tête
@@ -274,15 +358,19 @@ local neckFrames = loft(neck, {
 	end
 	return COLORS.back
 end, false)
-for i = 2, 4 do
-	local fr = neckFrames[i]
-	local top = fr.p + fr.up * fr.h
-	spike(neck, top, top + fr.up * 0.7 + V(0, -0.25, 0), 0.17, COLORS.petal, COLORS.ink)
+if HIGH then
+	spikeRow(neck, neckFrames, 1.2, 4.9, 11, 0.6, -1, { COLORS.petal, COLORS.petal, COLORS.ink })
+else
+	for i = 2, 4 do
+		local fr = neckFrames[i]
+		local top = fr.p + fr.up * fr.h
+		spike(neck, top, top + fr.up * 0.7 + V(0, -0.25, 0), 0.17, COLORS.petal, COLORS.ink)
+	end
 end
 
 local head = bone("Head", 0, 6.0, -2.2)
 motor("HeadJoint", neck, head, at(0, 6.0, -2.2))
-loft(head, {
+local headFrames = loft(head, {
 	ring(0, 6.25, -1.8, 0.62, 0.62),
 	ring(0, 6.35, -2.4, 0.8, 0.7),
 	ring(0, 6.3, -3.1, 0.72, 0.6),
@@ -296,6 +384,9 @@ loft(head, {
 	end
 	return COLORS.back
 end, 0.3)
+if HIGH then
+	spikeRow(head, headFrames, 1.0, 2.6, 4, 0.3, -1, { COLORS.ink })
+end
 
 local jaw = bone("Jaw", 0, 5.85, -2.3)
 motor("JawJoint", head, jaw, at(0, 5.85, -2.3))
@@ -310,9 +401,25 @@ end, 0.3)
 for _, sx in { -1, 1 } do
 	local side = sx < 0 and "L" or "R"
 	-- dents
-	for j, z in { -3.0, -3.5, -4.0, -4.45 } do
-		local x = sx * (0.45 - j * 0.04)
-		spike(head, V(x, 5.85, z), V(x, 5.5, z - 0.05), 0.06, COLORS.claw)
+	local teeth = HIGH and { -2.8, -3.15, -3.5, -3.8, -4.1, -4.4 } or { -3.0, -3.5, -4.0, -4.45 }
+	for j, z in teeth do
+		local x = sx * (0.47 - j * 0.035)
+		spike(head, V(x, 5.85, z), V(x, (j % 2 == 0) and 5.42 or 5.55, z - 0.05), 0.06, COLORS.claw)
+	end
+	if HIGH then
+		for j, z in { -3.0, -3.45, -3.9, -4.25 } do
+			local x = sx * (0.4 - j * 0.03)
+			spike(jaw, V(x, 5.75, z), V(x, 6.05, z + 0.03), 0.05, COLORS.claw)
+		end
+		-- arcade sourcilière, joues et menton à épines
+		for j = 0, 2 do
+			local z = -2.6 - j * 0.35
+			spike(head, V(sx * 0.5, 6.8 - j * 0.03, z), V(sx * (0.62 + j * 0.03), 7.05 - j * 0.06, z + 0.25), 0.07, COLORS.ink)
+		end
+		spike(head, V(sx * 0.6, 6.1, -2.3), V(sx * 1.1, 6.0, -1.55), 0.13, COLORS.back, COLORS.petal)
+		spike(head, V(sx * 0.55, 5.95, -2.65), V(sx * 0.98, 5.75, -2.0), 0.1, COLORS.back, COLORS.petal)
+		spike(jaw, V(sx * 0.25, 5.5, -2.9), V(sx * 0.36, 5.12, -2.55), 0.07, COLORS.ink)
+		spike(head, V(sx * 0.16, 6.15, -4.35), V(sx * 0.2, 6.32, -4.2), 0.07, COLORS.back)
 	end
 	-- yeux sur les côtés de la tête
 	local rz = sx * 0.6
@@ -325,12 +432,20 @@ for _, sx in { -1, 1 } do
 	spike(head, V(sx * 0.42, 6.85, -2.5), V(sx * 0.62, 6.8, -3.55), 0.11, COLORS.ink)
 	part("Nostril", "Part", 0.12, 0.08, 0.12, at(sx * 0.16, 6.08, -4.62), COLORS.ink, head)
 	-- cornes balayées vers l'arrière, rouges à la base et blanches au bout
-	loft(head, {
-		ring(sx * 0.38, 6.7, -2.3, 0.22, 0.22),
-		ring(sx * 0.62, 7.3, -1.6, 0.17, 0.17),
-		ring(sx * 0.8, 7.75, -0.7, 0.11, 0.11),
-	}, 5, UP, function(i)
-		return i == 1 and COLORS.red or COLORS.petal
+	local hornRings = {}
+	local hb, hc, he = V(sx * 0.38, 6.7, -2.3), V(sx * 0.62, 7.3, -1.6), V(sx * 0.8, 7.75, -0.7)
+	local hornSteps = HIGH and 7 or 3
+	for j = 0, hornSteps - 1 do
+		local u = j / (hornSteps - 1)
+		local p = hb * ((1 - u) ^ 2) + hc * (2 * u * (1 - u)) + he * (u * u)
+		local r = 0.22 * (1 - u * 0.5) * ((HIGH and j % 2 == 1) and 1.15 or 1)
+		table.insert(hornRings, { p = p, w = r, h = r })
+	end
+	loft(head, hornRings, 5, UP, function(i)
+		if i <= math.ceil(hornSteps / 3) then
+			return COLORS.red
+		end
+		return (HIGH and i % 2 == 0) and COLORS.lilac or COLORS.petal
 	end, 0.8)
 	spike(head, V(sx * 0.3, 6.6, -1.7), V(sx * 0.55, 6.9, -0.9), 0.1, COLORS.ink)
 
@@ -341,7 +456,7 @@ for _, sx in { -1, 1 } do
 	local function lobe(cx, cy, rx, ry, rot, z)
 		plate(ear, cx, cy, z + 0.08, rx + 0.14, ry + 0.14, rot, 6, COLORS.ink)
 		plate(ear, cx, cy, z, rx, ry, rot, 6, COLORS.petal)
-		plate(ear, cx + sx * 0.08, cy + 0.08, z - 0.06, rx * 0.5, ry * 0.5, rot, 5, COLORS.red)
+		plate(ear, cx + sx * 0.08, cy + 0.08, z - math.min(rx, ry) * 0.25 - 0.04, rx * 0.5, ry * 0.5, rot, 5, COLORS.red)
 	end
 	-- attache qui relie les collerettes à la tête
 	loft(ear, { ring(sx * 0.3, 6.55, -1.85, 0.3, 0.3), ring(sx * 1.1, 6.85, -1.75, 0.22, 0.22) }, 4, UP, function()
@@ -378,6 +493,19 @@ for _, sx in { -1, 1 } do
 	tri(w(0, 0, 0.05), w(3.0, -3.6, 0.2), w(0.6, -2.6, 0.2), COLORS.lilac, arm)
 	tri(w(0.4, -0.2, 0.0), w(2.4, -0.2, 0.0), w(1.2, -1.3, 0.05), COLORS.red, arm)
 	spike(arm, w(3.3, -0.3, -0.1), w(3.4, -1.1, -0.3), 0.14, COLORS.claw)
+	if HIGH then
+		for j = 0, 2 do
+			local x = 0.7 + j * 0.9
+			spike(arm, w(x, 0.4, 0.05), w(x - 0.25, 0.85, 0.35), 0.1, j % 2 == 0 and COLORS.red or COLORS.ink)
+		end
+		spike(arm, w(3.3, 0.15, 0.2), w(3.85, 0.35, 0.95), 0.16, COLORS.ink, COLORS.claw)
+		-- doigt de l'aile en relief dans la membrane
+		loft(arm, { { p = w(3.3, -0.1, 0.12), w = 0.1, h = 0.1 }, { p = w(3.0, -3.55, 0.22), w = 0.05, h = 0.05 } }, 4,
+			FRONT, function()
+				return COLORS.ink
+			end, 0.1)
+		tri(w(0.7, -0.5, 0.0), w(1.0, -0.5, 0.0), w(0.9, -2.4, 0.1), COLORS.ink, arm)
+	end
 
 	local ex, ey, ez = w(3.4, 0, 0).X, w(3.4, 0, 0).Y, w(3.4, 0, 0).Z
 	local fore = bone("Forewing" .. side, ex, ey, ez)
@@ -392,6 +520,19 @@ for _, sx in { -1, 1 } do
 	tri(w(4.6, -0.3, 0.0), w(6.4, -0.3, 0.0), w(5.6, -1.4, 0.05), COLORS.red, fore)
 	spike(fore, w(7.2, -0.1, -0.1), w(7.5, -0.9, -0.35), 0.13, COLORS.claw)
 	spike(fore, w(6.9, -0.1, -0.2), w(7.0, -0.8, -0.55), 0.11, COLORS.claw)
+	if HIGH then
+		spike(fore, w(7.3, 0.05, 0.05), w(7.75, -0.5, 0.15), 0.11, COLORS.claw)
+		for j = 0, 2 do
+			local x = 4.0 + j * 1.0
+			spike(fore, w(x, 0.3, 0.05), w(x - 0.2, 0.7, 0.3), 0.08, j % 2 == 0 and COLORS.ink or COLORS.red)
+		end
+		for _, tip in { w(6.2, -3.2, 0.17), w(4.8, -3.5, 0.2) } do
+			loft(fore, { { p = w(7.0, -0.1, 0.12), w = 0.09, h = 0.09 }, { p = tip, w = 0.04, h = 0.04 } }, 4,
+				FRONT, function()
+					return COLORS.ink
+				end, 0.1)
+		end
+	end
 
 	-- longues plumes en lames, qui pendent vers l'extérieur (le script les met à plat en vol)
 	for i = 0, 5 do
@@ -454,6 +595,16 @@ for _, sx in { -1, 1 } do
 		spike(shin, toe + V(0, 0.08, 0.1), toe + V(dx * 0.3, -0.12, -0.55), 0.1, COLORS.claw)
 	end
 	spike(shin, V(kx, -4.5, 1.0), V(kx, -4.95, 1.5), 0.1, COLORS.claw)
+	if HIGH then
+		spike(shin, V(kx, -2.45, -0.15), V(kx, -2.2, -0.75), 0.14, COLORS.ink)
+		spike(shin, V(kx, -3.7, 1.25), V(kx, -3.55, 1.75), 0.1, COLORS.ink)
+		spike(thigh, V(kx + sx * 0.75, -0.9, 1.1), V(kx + sx * 1.15, -0.6, 1.5), 0.12, COLORS.red, COLORS.ink)
+		for _, dx in { -0.32, 0, 0.32 } do
+			-- jointure des doigts
+			local knuckle = V(kx + dx * 1.2, -4.72, -0.05)
+			spike(shin, knuckle + V(0, 0.1, 0.05), knuckle + V(0, 0.22, -0.2), 0.08, COLORS.redDeep)
+		end
+	end
 end
 
 ---------------------------------------------------------------- queue
@@ -477,9 +628,22 @@ for k = 1, 5 do
 		end
 		return COLORS.back
 	end, k == 5 and 0 or false)
-	local mid = (fr[1].p + fr[2].p) / 2
-	local top = mid + fr[1].up * (fr[1].h + fr[2].h) / 2
-	spike(seg, top, top + V(0, 0.7 - k * 0.08, 0.35), 0.16, k % 2 == 1 and COLORS.red or COLORS.ink, COLORS.ink)
+	if HIGH then
+		spikeRow(seg, fr, 1.05, 1.95, 3, 0.6 - k * 0.07, 1, { COLORS.red, COLORS.ink, COLORS.petal })
+		for _, side in { -1, 1 } do
+			for j = 0, 1 do
+				local u = 0.3 + j * 0.45
+				local p = fr[1].p + (fr[2].p - fr[1].p) * u
+				local wd = fr[1].w + (fr[2].w - fr[1].w) * u
+				local base = p + fr[1].right * (side * wd * 0.9)
+				spike(seg, base, base + fr[1].right * (side * 0.35) + V(0, 0.15, 0.25), 0.07, COLORS.ink)
+			end
+		end
+	else
+		local mid = (fr[1].p + fr[2].p) / 2
+		local top = mid + fr[1].up * (fr[1].h + fr[2].h) / 2
+		spike(seg, top, top + V(0, 0.7 - k * 0.08, 0.35), 0.16, k % 2 == 1 and COLORS.red or COLORS.ink, COLORS.ink)
+	end
 	prev = seg
 end
 local tipP = tailPts[6][1]
