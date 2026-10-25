@@ -370,45 +370,50 @@ end
 
 local head = bone("Head", 0, 6.0, -2.2)
 motor("HeadJoint", neck, head, at(0, 6.0, -2.2))
+-- tête anguleuse : crâne large derrière les yeux, long museau pointu
 local headFrames = loft(head, {
-	ring(0, 6.25, -1.8, 0.62, 0.62),
-	ring(0, 6.35, -2.4, 0.8, 0.7),
-	ring(0, 6.3, -3.1, 0.72, 0.6),
-	ring(0, 6.1, -3.9, 0.5, 0.45),
-	ring(0, 5.95, -4.6, 0.36, 0.32),
-}, 6, UP, function(i, f)
+	ring(0, 6.3, -1.75, 0.6, 0.6),
+	ring(0, 6.5, -2.35, 0.78, 0.72),
+	ring(0, 6.35, -3.05, 0.62, 0.55),
+	ring(0, 6.12, -3.8, 0.42, 0.42),
+	ring(0, 5.98, -4.6, 0.3, 0.32),
+	ring(0, 5.9, -5.2, 0.18, 0.22),
+}, 4, UP, function(i, f)
 	if f > 0.99 and i >= 2 then
 		return COLORS.red
-	elseif f < -0.5 then
+	elseif f < -0.4 then
 		return COLORS.belly
 	end
 	return COLORS.back
-end, 0.3)
+end, 0.4)
 if HIGH then
-	spikeRow(head, headFrames, 1.0, 2.6, 4, 0.3, -1, { COLORS.ink })
+	spikeRow(head, headFrames, 1.0, 2.8, 4, 0.45, -1, { COLORS.ink, COLORS.red })
 end
+-- cornes du nez
+spike(head, V(0, 6.38, -4.3), V(0, 6.9, -4.0), 0.12, COLORS.red, COLORS.ink)
+spike(head, V(0, 6.55, -3.6), V(0, 6.85, -3.4), 0.08, COLORS.ink)
 
 local jaw = bone("Jaw", 0, 5.85, -2.3)
 motor("JawJoint", head, jaw, at(0, 5.85, -2.3))
 loft(jaw, {
-	ring(0, 5.75, -2.3, 0.6, 0.3),
-	ring(0, 5.6, -3.3, 0.5, 0.25),
-	ring(0, 5.5, -4.2, 0.36, 0.2),
-}, 6, UP, function(_, f)
+	ring(0, 5.75, -2.3, 0.55, 0.28),
+	ring(0, 5.62, -3.4, 0.42, 0.22),
+	ring(0, 5.55, -4.5, 0.26, 0.17),
+}, 4, UP, function(_, f)
 	return f > 0.99 and COLORS.redDark or COLORS.belly
-end, 0.3)
+end, 0.5)
 
 for _, sx in { -1, 1 } do
 	local side = sx < 0 and "L" or "R"
 	-- dents
-	local teeth = HIGH and { -2.8, -3.15, -3.5, -3.8, -4.1, -4.4 } or { -3.0, -3.5, -4.0, -4.45 }
+	local teeth = HIGH and { -2.8, -3.15, -3.5, -3.85, -4.2, -4.55, -4.9 } or { -3.0, -3.6, -4.2, -4.8 }
 	for j, z in teeth do
-		local x = sx * (0.47 - j * 0.035)
+		local x = sx * (0.47 - j * 0.042)
 		spike(head, V(x, 5.85, z), V(x, (j % 2 == 0) and 5.42 or 5.55, z - 0.05), 0.06, COLORS.claw)
 	end
 	if HIGH then
-		for j, z in { -3.0, -3.45, -3.9, -4.25 } do
-			local x = sx * (0.4 - j * 0.03)
+		for j, z in { -3.0, -3.5, -4.0, -4.5 } do
+			local x = sx * (0.4 - j * 0.04)
 			spike(jaw, V(x, 5.75, z), V(x, 6.05, z + 0.03), 0.05, COLORS.claw)
 		end
 		-- arcade sourcilière, joues et menton à épines
@@ -416,29 +421,32 @@ for _, sx in { -1, 1 } do
 			local z = -2.6 - j * 0.35
 			spike(head, V(sx * 0.5, 6.8 - j * 0.03, z), V(sx * (0.62 + j * 0.03), 7.05 - j * 0.06, z + 0.25), 0.07, COLORS.ink)
 		end
-		spike(head, V(sx * 0.6, 6.1, -2.3), V(sx * 1.1, 6.0, -1.55), 0.13, COLORS.back, COLORS.petal)
-		spike(head, V(sx * 0.55, 5.95, -2.65), V(sx * 0.98, 5.75, -2.0), 0.1, COLORS.back, COLORS.petal)
+		spike(head, V(sx * 0.6, 6.15, -2.4), V(sx * 1.4, 6.05, -1.35), 0.17, COLORS.back, COLORS.petal)
+		spike(head, V(sx * 0.55, 5.95, -2.75), V(sx * 1.25, 5.65, -1.85), 0.13, COLORS.back, COLORS.petal)
+		spike(head, V(sx * 0.45, 5.9, -3.3), V(sx * 0.9, 5.6, -2.7), 0.08, COLORS.ink)
 		spike(jaw, V(sx * 0.25, 5.5, -2.9), V(sx * 0.36, 5.12, -2.55), 0.07, COLORS.ink)
-		spike(head, V(sx * 0.16, 6.15, -4.35), V(sx * 0.2, 6.32, -4.2), 0.07, COLORS.back)
+		spike(head, V(sx * 0.14, 6.12, -4.8), V(sx * 0.2, 6.3, -4.6), 0.06, COLORS.back)
 	end
-	-- yeux sur les côtés de la tête
-	local rz = sx * 0.6
-	part("EyeSocket", "Part", 0.05, 0.34, 0.62, at(sx * 0.57, 6.55, -3.0, 0, 0, rz), COLORS.ink, head)
-	local eye = part("Eye", "Part", 0.07, 0.22, 0.45, at(sx * 0.59, 6.56, -3.0, 0, 0, rz), COLORS.eye, head)
+	-- yeux étroits, inclinés vers le museau, sous une grosse arcade noire
+	local function eyeAt(dx, dy, dz)
+		return at(sx * (0.5 + dx), 6.62 + dy, -3.0 + dz, 0, 0, sx * 0.57) * CFrame.Angles(-0.3, 0, 0)
+	end
+	part("EyeSocket", "Part", 0.05, 0.28, 0.72, eyeAt(0, 0, 0), COLORS.ink, head)
+	local eye = part("Eye", "Part", 0.07, 0.15, 0.52, eyeAt(0.02, 0, 0), COLORS.eye, head)
 	eye.Material = Enum.Material.Neon
-	part("Pupil", "Part", 0.08, 0.2, 0.08, at(sx * 0.6, 6.56, -3.05, 0, 0, rz), COLORS.ink, head)
-	local lid = part("Lid" .. side, "Part", 0.09, 0.26, 0.5, at(sx * 0.61, 6.56, -3.0, 0, 0, rz), COLORS.back, head)
+	part("Pupil", "Part", 0.08, 0.14, 0.07, eyeAt(0.03, 0, -0.04), COLORS.ink, head)
+	local lid = part("Lid" .. side, "Part", 0.09, 0.2, 0.56, eyeAt(0.04, 0, 0), COLORS.back, head)
 	lid.Transparency = 1
-	spike(head, V(sx * 0.42, 6.85, -2.5), V(sx * 0.62, 6.8, -3.55), 0.11, COLORS.ink)
-	part("Nostril", "Part", 0.12, 0.08, 0.12, at(sx * 0.16, 6.08, -4.62), COLORS.ink, head)
+	spike(head, V(sx * 0.36, 7.02, -2.35), V(sx * 0.62, 6.7, -3.55), 0.16, COLORS.ink)
+	part("Nostril", "Part", 0.1, 0.07, 0.12, at(sx * 0.11, 6.1, -5.05), COLORS.ink, head)
 	-- cornes balayées vers l'arrière, rouges à la base et blanches au bout
 	local hornRings = {}
-	local hb, hc, he = V(sx * 0.38, 6.7, -2.3), V(sx * 0.62, 7.3, -1.6), V(sx * 0.8, 7.75, -0.7)
+	local hb, hc, he = V(sx * 0.36, 6.8, -2.3), V(sx * 0.58, 7.75, -1.55), V(sx * 0.78, 8.6, -0.35)
 	local hornSteps = HIGH and 7 or 3
 	for j = 0, hornSteps - 1 do
 		local u = j / (hornSteps - 1)
 		local p = hb * ((1 - u) ^ 2) + hc * (2 * u * (1 - u)) + he * (u * u)
-		local r = 0.22 * (1 - u * 0.5) * ((HIGH and j % 2 == 1) and 1.15 or 1)
+		local r = 0.24 * (1 - u * 0.55) * ((HIGH and j % 2 == 1) and 1.15 or 1)
 		table.insert(hornRings, { p = p, w = r, h = r })
 	end
 	loft(head, hornRings, 5, UP, function(i)
@@ -449,21 +457,53 @@ for _, sx in { -1, 1 } do
 	end, 0.8)
 	spike(head, V(sx * 0.3, 6.6, -1.7), V(sx * 0.55, 6.9, -0.9), 0.1, COLORS.ink)
 
-	-- collerettes en forme d'ailes de papillon, derrière les cornes
-	local ex, ey, ez = sx * 0.7, 6.5, -1.9
+	-- grandes collerettes en éventail, balayées vers l'arrière, bordées d'épines
+	local ex, ey, ez = sx * 0.7, 6.55, -1.7
 	local ear = bone("Ear" .. side, ex, ey, ez)
 	motor("EarJoint" .. side, head, ear, at(ex, ey, ez))
-	local function lobe(cx, cy, rx, ry, rot, z)
-		plate(ear, cx, cy, z + 0.08, rx + 0.14, ry + 0.14, rot, 6, COLORS.ink)
-		plate(ear, cx, cy, z, rx, ry, rot, 6, COLORS.petal)
-		plate(ear, cx + sx * 0.08, cy + 0.08, z - math.min(rx, ry) * 0.25 - 0.04, rx * 0.5, ry * 0.5, rot, 5, COLORS.red)
+	local origin = V(ex, ey, ez)
+	local u = V(sx * math.cos(0.55), 0, math.sin(0.55)) -- vers l'extérieur et l'arrière
+	local v = V(0, math.cos(0.2), math.sin(0.2)) -- vers le haut
+	local nrm = v:Cross(u) * sx -- face avant de la collerette
+	local function flat(x, y, lift)
+		return origin + u * x + v * y + nrm * lift
+	end
+	local function layer(cx, cy, rx, ry, rot, n, lift, color)
+		local center = flat(cx, cy, lift)
+		local pts = {}
+		for k = 0, n - 1 do
+			local th = k / n * math.pi * 2
+			local x, y = math.cos(th) * rx, math.sin(th) * ry
+			pts[k] = flat(cx + x * math.cos(rot) - y * math.sin(rot), cy + x * math.sin(rot) + y * math.cos(rot), lift)
+		end
+		for k = 0, n - 1 do
+			tri(pts[k], pts[(k + 1) % n], center, color, ear)
+		end
+	end
+	local function lobe(cx, cy, rx, ry, rot)
+		local n = HIGH and 9 or 6
+		layer(cx, cy, rx + 0.16, ry + 0.16, rot, n, 0, COLORS.ink)
+		for _, side2 in { 1, -1 } do
+			layer(cx, cy, rx, ry, rot, n, 0.03 * side2, COLORS.petal)
+			layer(cx, cy, rx * 0.72, ry * 0.72, rot, n, 0.06 * side2, COLORS.lilac)
+			layer(cx + 0.1, cy + 0.15, rx * 0.42, ry * 0.42, rot, 6, 0.09 * side2, COLORS.red)
+		end
+		-- épines sur le bord extérieur
+		for _, th in { 1.15, 1.57, 1.99 } do
+			local x, y = math.cos(th) * rx, math.sin(th) * ry
+			local px, py = x * math.cos(rot) - y * math.sin(rot), x * math.sin(rot) + y * math.cos(rot)
+			local len = (th == 1.57) and 0.9 or 0.55
+			local d = V(px, py, 0).Unit
+			spike(ear, flat(cx + px * 0.9, cy + py * 0.9, 0), flat(cx + px + d.X * len, cy + py + d.Y * len, 0), 0.09, COLORS.ink)
+		end
 	end
 	-- attache qui relie les collerettes à la tête
-	loft(ear, { ring(sx * 0.3, 6.55, -1.85, 0.3, 0.3), ring(sx * 1.1, 6.85, -1.75, 0.22, 0.22) }, 4, UP, function()
+	loft(ear, { ring(sx * 0.3, 6.6, -1.8, 0.34, 0.34), { p = flat(0.5, 0.05, 0), w = 0.26, h = 0.26 } }, 4, UP, function()
 		return COLORS.back
-	end, 0.15)
-	lobe(sx * 1.45, 7.35, 0.7, 1.0, -sx * 0.55, -1.75)
-	lobe(sx * 1.65, 6.45, 0.5, 0.75, -sx * 1.45, -1.7)
+	end, 0)
+	lobe(1.25, 1.75, 1.05, 1.75, -0.4)
+	lobe(2.15, 0.55, 0.85, 1.35, -1.2)
+	lobe(1.75, -0.75, 0.65, 1.0, -2.0)
 end
 
 ---------------------------------------------------------------- ailes
