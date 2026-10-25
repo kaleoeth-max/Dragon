@@ -164,7 +164,15 @@ local function refine(rings, steps)
 			local t = s / steps
 			local p = (p1 * 2 + (p2 - p0) * t + (p0 * 2 - p1 * 5 + p2 * 4 - p3) * (t * t)
 				+ (p1 * 3 - p0 - p2 * 3 + p3) * (t * t * t)) * 0.5
-			table.insert(out, { p = p, w = a.w + (b.w - a.w) * t, h = a.h + (b.h - a.h) * t })
+			local shape = nil
+			if a.shape then
+				shape = {}
+				for j, q in a.shape do
+					local q2 = b.shape[j]
+					shape[j] = { q[1] + (q2[1] - q[1]) * t, q[2] + (q2[2] - q[2]) * t, q[3] }
+				end
+			end
+			table.insert(out, { p = p, w = a.w + (b.w - a.w) * t, h = a.h + (b.h - a.h) * t, shape = shape })
 			table.insert(src, { i, s })
 		end
 	end
@@ -176,9 +184,15 @@ end
 local function loft(attachTo, rings, sides, ref, paint, tip)
 	local nOrig, src = #rings, nil
 	local relief = HIGH and math.min(rings[1].w, rings[1].h) > 0.25
+	local profiled = rings[1].shape ~= nil
 	if HIGH then
 		rings, src = refine(rings, 3)
-		sides += math.floor(sides / 2)
+		if not profiled then
+			sides += math.floor(sides / 2)
+		end
+	end
+	if profiled then
+		sides = #rings[1].shape
 	end
 	local phase = (sides / 4 - 0.5) % 1 -- une face pile sur le dessus
 	local verts, frames = {}, {}
@@ -189,19 +203,29 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 		frames[i] = { p = r.p, t = t, right = right, up = up, w = r.w, h = r.h }
 		verts[i] = {}
 		for k = 0, sides - 1 do
-			local th = (k + phase) / sides * math.pi * 2
+			local cx, cy
+			if profiled then
+				cx, cy = r.shape[k + 1][1], r.shape[k + 1][2]
+			else
+				local th = (k + phase) / sides * math.pi * 2
+				cx, cy = math.cos(th), math.sin(th)
+			end
 			local bump = 1
 			if relief then
 				-- petites irrégularités sculptées, et écailles du ventre un anneau sur deux
-				bump = 1 + (hash(i, k) - 0.5) * 0.08
-				if math.sin(th) < -0.5 and i % 2 == 0 then
+				bump = 1 + (hash(i, k) - 0.5) * (profiled and 0.04 or 0.08)
+				if not profiled and cy < -0.5 and i % 2 == 0 then
 					bump += 0.05
 				end
 			end
-			verts[i][k] = r.p + right * (math.cos(th) * r.w * bump) + up * (math.sin(th) * r.h * bump)
+			verts[i][k] = r.p + right * (cx * r.w * bump) + up * (cy * r.h * bump)
 		end
 	end
 	local function face(k)
+		if profiled then
+			local shape = rings[1].shape
+			return (shape[k + 1][2] + shape[(k + 1) % sides + 1][2]) / 2, shape[k + 1][3]
+		end
 		return math.sin((k + phase + 0.5) / sides * math.pi * 2)
 	end
 	local function colorAt(i, k)
@@ -241,6 +265,19 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 			last.p - last.t * 0.05, math.min(0.2, 0.5 * math.min(last.w, last.h)))
 	end
 	return origFrames
+end
+
+-- Section symétrique : on donne la moitié droite, du haut (x = 0) jusqu'en bas (x = 0).
+-- Chaque point porte l'étiquette de la face qui va vers le point suivant.
+local function symShape(half)
+	local pts = {}
+	for _, q in half do
+		table.insert(pts, { q[1], q[2], q[3] })
+	end
+	for k = #half - 1, 2, -1 do
+		table.insert(pts, { -half[k][1], half[k][2], half[k - 1][3] })
+	end
+	return pts
 end
 
 local function refFor(dir)
@@ -370,75 +407,158 @@ end
 
 local head = bone("Head", 0, 6.0, -2.2)
 motor("HeadJoint", neck, head, at(0, 6.0, -2.2))
--- tête anguleuse : crâne large derrière les yeux, long museau pointu
-local headFrames = loft(head, {
-	ring(0, 6.3, -1.75, 0.6, 0.6),
-	ring(0, 6.5, -2.35, 0.78, 0.72),
-	ring(0, 6.35, -3.05, 0.62, 0.55),
-	ring(0, 6.12, -3.8, 0.42, 0.42),
-	ring(0, 5.98, -4.6, 0.3, 0.32),
-	ring(0, 5.9, -5.2, 0.18, 0.22),
-}, 4, UP, function(i, f)
-	if f > 0.99 and i >= 2 then
-		return COLORS.red
-	elseif f < -0.4 then
-		return COLORS.belly
+
+-- Section de la tête : dessus plat, arcade sourcilière saillante, pommette, lèvre, palais.
+local function headShape(brow)
+	return symShape({
+		{ 0, 1.0, "top" },
+		{ 0.45, 1.0, "brow" },
+		{ 0.85 + brow * 0.3, 0.78 + brow * 0.2, "side" },
+		{ 1.0, 0.25, "cheek" },
+		{ 0.95, -0.35, "low" },
+		{ 0.75, -0.72, "lip" },
+		{ 0.4, -0.85, "roof" },
+		{ 0, -0.85, "roof" },
+	})
+end
+-- z, hauteur du centre, demi-largeur, demi-hauteur, force de l'arcade
+local HEAD = {
+	{ -1.6, 6.45, 0.62, 0.62, 0 },
+	{ -2.2, 6.6, 0.8, 0.7, 0.1 },
+	{ -2.85, 6.55, 0.78, 0.65, 0.3 },
+	{ -3.5, 6.35, 0.6, 0.55, 0.1 },
+	{ -4.3, 6.15, 0.45, 0.45, 0 },
+	{ -5.0, 6.02, 0.32, 0.38, 0 },
+	{ -5.35, 5.98, 0.18, 0.25, 0 },
+}
+local function headAt(z)
+	for j = 1, #HEAD - 1 do
+		local a, b = HEAD[j], HEAD[j + 1]
+		if z <= a[1] and z >= b[1] then
+			local t = (z - a[1]) / (b[1] - a[1])
+			return a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t, a[4] + (b[4] - a[4]) * t
+		end
 	end
-	return COLORS.back
-end, 0.4)
+	local e = z > HEAD[1][1] and HEAD[1] or HEAD[#HEAD]
+	return e[2], e[3], e[4]
+end
+-- point de la surface de la tête, en coordonnées de la section (x de -1 à 1, y de -1 à 1)
+local function headPoint(z, px, py)
+	local cy, w, h = headAt(z)
+	return V(px * w, cy + py * h, z)
+end
+
+local headRings = {}
+for _, r in HEAD do
+	table.insert(headRings, { p = V(0, r[2], r[1]), w = r[3], h = r[4], shape = headShape(r[5]) })
+end
+local HEAD_COLORS = {
+	top = COLORS.back, brow = COLORS.ink, side = COLORS.back, cheek = COLORS.back,
+	low = COLORS.belly, lip = COLORS.ink, roof = COLORS.redDark,
+}
+local headFrames = loft(head, headRings, 0, UP, function(i, _, tag)
+	if tag == "top" and i >= 2 then
+		return COLORS.red
+	elseif tag == "brow" and (i < 2 or i > 3) then
+		return COLORS.back -- l'arcade noire seulement autour des yeux
+	end
+	return HEAD_COLORS[tag]
+end, 0.25)
 if HIGH then
 	spikeRow(head, headFrames, 1.0, 2.8, 4, 0.45, -1, { COLORS.ink, COLORS.red })
 end
 -- cornes du nez
-spike(head, V(0, 6.38, -4.3), V(0, 6.9, -4.0), 0.12, COLORS.red, COLORS.ink)
-spike(head, V(0, 6.55, -3.6), V(0, 6.85, -3.4), 0.08, COLORS.ink)
+spike(head, headPoint(-4.45, 0, 0.95), headPoint(-4.2, 0, 2.2), 0.12, COLORS.red, COLORS.ink)
+spike(head, headPoint(-3.75, 0, 0.95), headPoint(-3.55, 0, 1.6), 0.08, COLORS.ink)
 
-local jaw = bone("Jaw", 0, 5.85, -2.3)
-motor("JawJoint", head, jaw, at(0, 5.85, -2.3))
+-- mâchoire : lèvre noire qui suit celle du haut, menton, plancher de la gueule rouge foncé
+local jaw = bone("Jaw", 0, 5.95, -2.0)
+motor("JawJoint", head, jaw, at(0, 5.95, -2.0))
+local jawShape = symShape({
+	{ 0, 0.25, "floor" },
+	{ 0.55, 0.25, "lip" },
+	{ 0.8, 0.4, "side" },
+	{ 1.0, -0.05, "side" },
+	{ 0.75, -0.7, "under" },
+	{ 0.3, -1.0, "under" },
+	{ 0, -1.0, "under" },
+})
+local jawRings = {}
+for j, z in { -2.0, -2.6, -3.4, -4.2, -4.85, -5.25 } do
+	local cy, w, h = headAt(z)
+	local hj = ({ 0.34, 0.32, 0.28, 0.22, 0.17, 0.12 })[j]
+	local lip = cy - 0.72 * h - 0.02
+	table.insert(jawRings, { p = V(0, lip - 0.4 * hj, z), w = w * 0.92, h = hj, shape = jawShape })
+end
+local JAW_COLORS = { floor = COLORS.redDark, lip = COLORS.ink, side = COLORS.belly, under = COLORS.belly }
+loft(jaw, jawRings, 0, UP, function(_, _, tag)
+	return JAW_COLORS[tag]
+end, 0.15)
+local function jawPoint(z, px, py)
+	local cy, w, h = headAt(z)
+	local t = math.clamp((z + 2.0) / (-5.25 + 2.0), 0, 1)
+	local hj = 0.34 + (0.12 - 0.34) * t
+	local lip = cy - 0.72 * h - 0.02
+	return V(px * w * 0.92, lip - 0.4 * hj + py * hj, z)
+end
+-- langue
 loft(jaw, {
-	ring(0, 5.75, -2.3, 0.55, 0.28),
-	ring(0, 5.62, -3.4, 0.42, 0.22),
-	ring(0, 5.55, -4.5, 0.26, 0.17),
-}, 4, UP, function(_, f)
-	return f > 0.99 and COLORS.redDark or COLORS.belly
-end, 0.5)
+	{ p = jawPoint(-2.4, 0, 0.2), w = 0.24, h = 0.06 },
+	{ p = jawPoint(-3.6, 0, 0.25), w = 0.2, h = 0.06 },
+	{ p = jawPoint(-4.4, 0, 0.25), w = 0.12, h = 0.05 },
+}, 4, UP, function()
+	return COLORS.red
+end, 0.25)
 
 for _, sx in { -1, 1 } do
 	local side = sx < 0 and "L" or "R"
-	-- dents
-	local teeth = HIGH and { -2.8, -3.15, -3.5, -3.85, -4.2, -4.55, -4.9 } or { -3.0, -3.6, -4.2, -4.8 }
-	for j, z in teeth do
-		local x = sx * (0.47 - j * 0.042)
-		spike(head, V(x, 5.85, z), V(x, (j % 2 == 0) and 5.42 or 5.55, z - 0.05), 0.06, COLORS.claw)
+	-- dents du haut le long de la gencive, crocs à l'avant
+	local upper = HIGH and { -2.7, -3.0, -3.3, -3.6, -3.9, -4.2, -4.55, -4.85, -5.1 } or { -3.0, -3.6, -4.2, -4.55, -5.0 }
+	for _, z in upper do
+		local fang = math.abs(z + 4.55) < 0.01
+		local len = fang and 0.48 or (z < -4.7 and 0.16 or 0.22)
+		local base = headPoint(z, sx * 0.6, -0.76)
+		spike(head, base + V(0, 0.08, 0), base + V(-sx * 0.02, -len, fang and 0.08 or 0), fang and 0.09 or 0.055, COLORS.claw)
 	end
-	if HIGH then
-		for j, z in { -3.0, -3.5, -4.0, -4.5 } do
-			local x = sx * (0.4 - j * 0.04)
-			spike(jaw, V(x, 5.75, z), V(x, 6.05, z + 0.03), 0.05, COLORS.claw)
-		end
-		-- arcade sourcilière, joues et menton à épines
-		for j = 0, 2 do
-			local z = -2.6 - j * 0.35
-			spike(head, V(sx * 0.5, 6.8 - j * 0.03, z), V(sx * (0.62 + j * 0.03), 7.05 - j * 0.06, z + 0.25), 0.07, COLORS.ink)
-		end
-		spike(head, V(sx * 0.6, 6.15, -2.4), V(sx * 1.4, 6.05, -1.35), 0.17, COLORS.back, COLORS.petal)
-		spike(head, V(sx * 0.55, 5.95, -2.75), V(sx * 1.25, 5.65, -1.85), 0.13, COLORS.back, COLORS.petal)
-		spike(head, V(sx * 0.45, 5.9, -3.3), V(sx * 0.9, 5.6, -2.7), 0.08, COLORS.ink)
-		spike(jaw, V(sx * 0.25, 5.5, -2.9), V(sx * 0.36, 5.12, -2.55), 0.07, COLORS.ink)
-		spike(head, V(sx * 0.14, 6.12, -4.8), V(sx * 0.2, 6.3, -4.6), 0.06, COLORS.back)
+	-- dents du bas, un peu à l'intérieur pour s'emboîter
+	local lower = HIGH and { -2.9, -3.25, -3.6, -3.95, -4.3, -4.75 } or { -3.2, -3.9, -4.75 }
+	for _, z in lower do
+		local fang = math.abs(z + 4.75) < 0.01
+		local len = fang and 0.38 or 0.17
+		local base = jawPoint(z, sx * 0.5, 0.3)
+		spike(jaw, base - V(0, 0.06, 0), base + V(0, len, fang and -0.05 or 0), fang and 0.08 or 0.05, COLORS.claw)
 	end
-	-- yeux étroits, inclinés vers le museau, sous une grosse arcade noire
-	local function eyeAt(dx, dy, dz)
-		return at(sx * (0.5 + dx), 6.62 + dy, -3.0 + dz, 0, 0, sx * 0.57) * CFrame.Angles(-0.3, 0, 0)
+
+	-- yeux étroits sous l'arcade, inclinés vers le museau
+	local ep = headPoint(-2.95, sx * 0.97, 0.45)
+	local function eyeAt(dx, dz)
+		return at(ep.X + sx * dx, ep.Y, ep.Z + dz, 0, 0, -sx * 0.12) * CFrame.Angles(-0.32, 0, 0)
 	end
-	part("EyeSocket", "Part", 0.05, 0.28, 0.72, eyeAt(0, 0, 0), COLORS.ink, head)
-	local eye = part("Eye", "Part", 0.07, 0.15, 0.52, eyeAt(0.02, 0, 0), COLORS.eye, head)
+	part("EyeSocket", "Part", 0.05, 0.26, 0.72, eyeAt(0, 0), COLORS.ink, head)
+	local eye = part("Eye", "Part", 0.07, 0.14, 0.52, eyeAt(0.02, 0), COLORS.eye, head)
 	eye.Material = Enum.Material.Neon
-	part("Pupil", "Part", 0.08, 0.14, 0.07, eyeAt(0.03, 0, -0.04), COLORS.ink, head)
-	local lid = part("Lid" .. side, "Part", 0.09, 0.2, 0.56, eyeAt(0.04, 0, 0), COLORS.back, head)
+	part("Pupil", "Part", 0.08, 0.13, 0.07, eyeAt(0.03, -0.04), COLORS.ink, head)
+	local lid = part("Lid" .. side, "Part", 0.09, 0.2, 0.56, eyeAt(0.04, 0), COLORS.back, head)
 	lid.Transparency = 1
-	spike(head, V(sx * 0.36, 7.02, -2.35), V(sx * 0.62, 6.7, -3.55), 0.16, COLORS.ink)
-	part("Nostril", "Part", 0.1, 0.07, 0.12, at(sx * 0.11, 6.1, -5.05), COLORS.ink, head)
+
+	-- narines en fente sur le bout du museau
+	local np = headPoint(-5.0, sx * 0.5, 0.45)
+	part("Nostril", "Part", 0.08, 0.07, 0.2, at(np.X, np.Y, np.Z, 0, -sx * 0.4, sx * 0.5), COLORS.ink, head)
+
+	-- épines d'arcade, lames de joues, épines du menton
+	if HIGH then
+		for j = 0, 2 do
+			local base = headPoint(-2.55 - j * 0.3, sx * 1.0, 0.85)
+			spike(head, base, base + V(sx * 0.12, 0.3 - j * 0.05, 0.25), 0.07, COLORS.ink)
+		end
+		spike(jaw, jawPoint(-2.9, sx * 0.35, -0.9), jawPoint(-2.6, sx * 0.5, -2.4), 0.07, COLORS.ink)
+		spike(jaw, jawPoint(-3.5, sx * 0.3, -0.95), jawPoint(-3.3, sx * 0.4, -2.1), 0.05, COLORS.ink)
+	end
+	local cheek = headPoint(-2.4, sx * 0.95, 0.0)
+	spike(head, cheek, cheek + V(sx * 0.75, -0.05, 0.95), 0.16, COLORS.back, COLORS.ink)
+	local cheek2 = headPoint(-2.8, sx * 0.9, -0.4)
+	spike(head, cheek2, cheek2 + V(sx * 0.65, -0.25, 0.8), 0.12, COLORS.back, COLORS.ink)
+
 	-- cornes balayées vers l'arrière, rouges à la base et blanches au bout
 	local hornRings = {}
 	local hb, hc, he = V(sx * 0.36, 6.8, -2.3), V(sx * 0.58, 7.75, -1.55), V(sx * 0.78, 8.6, -0.35)
