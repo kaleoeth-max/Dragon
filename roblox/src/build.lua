@@ -11,6 +11,7 @@ local COLORS = {
 	back = Color3.fromRGB(150, 138, 208), -- dos
 	belly = Color3.fromRGB(238, 234, 252), -- ventre, gorge, dessous des ailes
 	bellyShade = Color3.fromRGB(214, 208, 240), -- une écaille du ventre sur deux
+	backShade = Color3.fromRGB(122, 110, 182), -- écailles en relief sur le dos
 	petal = Color3.fromRGB(236, 231, 251),
 	lilac = Color3.fromRGB(185, 175, 226),
 	red = Color3.fromRGB(211, 18, 46),
@@ -186,7 +187,7 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 	local relief = HIGH and math.min(rings[1].w, rings[1].h) > 0.25
 	local profiled = rings[1].shape ~= nil
 	if HIGH then
-		rings, src = refine(rings, 3)
+		rings, src = refine(rings, 2)
 		if not profiled then
 			sides += math.floor(sides / 2)
 		end
@@ -213,7 +214,7 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 			local bump = 1
 			if relief then
 				-- petites irrégularités sculptées, et écailles du ventre un anneau sur deux
-				bump = 1 + (hash(i, k) - 0.5) * (profiled and 0.04 or 0.08)
+				bump = 1 + (hash(i, k) - 0.5) * (profiled and 0.06 or 0.16)
 				if not profiled and cy < -0.5 and i % 2 == 0 then
 					bump += 0.05
 				end
@@ -331,6 +332,35 @@ local function spikeRow(attachTo, frames, from, to, count, size, lean, colors)
 	end
 end
 
+-- Écailles en relief : petites plaques à facettes posées sur un tube, couchées vers l'arrière.
+-- Entre les anneaux « from » et « to », sur l'arc d'angles a0..a1 (90° = dessus du tube).
+local function scales(attachTo, frames, from, to, rows, a0, a1, cols, size, lean)
+	if not HIGH then
+		return
+	end
+	for r = 0, rows - 1 do
+		local u = from + (to - from) * (r + 0.5) / rows
+		local i = math.min(math.floor(u), #frames - 1)
+		local t = u - i
+		local a, b = frames[i], frames[i + 1]
+		local p = a.p + (b.p - a.p) * t
+		local right = (a.right + (b.right - a.right) * t).Unit
+		local up = (a.up + (b.up - a.up) * t).Unit
+		local dir = (a.t + (b.t - a.t) * t).Unit
+		local w, h = a.w + (b.w - a.w) * t, a.h + (b.h - a.h) * t
+		for c = 0, cols - 1 do
+			-- quinconce : une rangée sur deux décalée d'une demi-écaille
+			local f = (c + 0.5 + (r % 2) * 0.5) / (cols + 0.5)
+			local th = math.rad(a0 + (a1 - a0) * f)
+			local out = right * math.cos(th) + up * math.sin(th)
+			local base = p + right * (math.cos(th) * w) + up * (math.sin(th) * h)
+			local len = size * (0.8 + 0.4 * hash(r, c))
+			spike(attachTo, base - out * 0.04, base + out * (len * 0.45) + dir * (lean * len), size * 0.55,
+				COLORS.backShade, COLORS.back)
+		end
+	end
+end
+
 -- Racine invisible : c'est elle que le script déplace
 local root = part("Root", "Part", 2, 2, 2, at(0, 0, 0), COLORS.ink)
 root.Transparency = 1
@@ -362,6 +392,7 @@ local torso = loft(body, {
 end, false)
 if HIGH then
 	spikeRow(body, torso, 1.3, 5.6, 9, 0.75, -1, { COLORS.red, COLORS.ink, COLORS.petal })
+	scales(body, torso, 1.2, 5.7, 12, 15, 165, 7, 0.32, -1)
 else
 	for i = 2, 5 do
 		local fr = torso[i]
@@ -397,6 +428,7 @@ local neckFrames = loft(neck, {
 end, false)
 if HIGH then
 	spikeRow(neck, neckFrames, 1.2, 4.9, 11, 0.6, -1, { COLORS.petal, COLORS.petal, COLORS.ink })
+	scales(neck, neckFrames, 1.1, 4.9, 12, 20, 160, 5, 0.24, -1)
 else
 	for i = 2, 4 do
 		local fr = neckFrames[i]
@@ -644,11 +676,12 @@ for _, sx in { -1, 1 } do
 
 	local arm = bone("UpperWing" .. side, sh.X, sh.Y, sh.Z)
 	motor("Shoulder" .. side, body, arm, at(sh.X, sh.Y, sh.Z))
-	loft(arm, {
+	local armFrames = loft(arm, {
 		{ p = w(-0.3, 0, 0), w = 0.6, h = 0.6 },
 		{ p = w(1.7, 0.1, 0), w = 0.5, h = 0.45 },
 		{ p = w(3.4, 0, 0), w = 0.38, h = 0.36 },
 	}, 6, UP, armPaint, false)
+	scales(arm, armFrames, 1.2, 2.9, 5, 30, 150, 3, 0.2, -1)
 	tri(w(0, 0, 0.05), w(3.4, 0, 0.05), w(3.0, -3.6, 0.2), COLORS.lilac, arm)
 	tri(w(0, 0, 0.05), w(3.0, -3.6, 0.2), w(0.6, -2.6, 0.2), COLORS.lilac, arm)
 	tri(w(0.4, -0.2, 0.0), w(2.4, -0.2, 0.0), w(1.2, -1.3, 0.05), COLORS.red, arm)
@@ -670,11 +703,12 @@ for _, sx in { -1, 1 } do
 	local ex, ey, ez = w(3.4, 0, 0).X, w(3.4, 0, 0).Y, w(3.4, 0, 0).Z
 	local fore = bone("Forewing" .. side, ex, ey, ez)
 	motor("Elbow" .. side, arm, fore, at(ex, ey, ez))
-	loft(fore, {
+	local foreFrames = loft(fore, {
 		{ p = w(3.3, 0, 0), w = 0.38, h = 0.36 },
 		{ p = w(5.4, 0.15, 0), w = 0.3, h = 0.28 },
 		{ p = w(7.4, 0, 0), w = 0.2, h = 0.2 },
 	}, 6, UP, armPaint, 0.5)
+	scales(fore, foreFrames, 1.1, 2.7, 6, 40, 140, 2, 0.16, -1)
 	tri(w(3.4, 0, 0.05), w(7.3, 0, 0.05), w(6.2, -3.2, 0.15), COLORS.petal, fore)
 	tri(w(3.4, 0, 0.05), w(6.2, -3.2, 0.15), w(3.0, -3.6, 0.2), COLORS.lilac, fore)
 	tri(w(4.6, -0.3, 0.0), w(6.4, -0.3, 0.0), w(5.6, -1.4, 0.05), COLORS.red, fore)
@@ -722,7 +756,7 @@ for _, sx in { -1, 1 } do
 	local x = sx * 1.35
 	local thigh = bone("Thigh" .. side, sx * 1.15, -0.3, 1.1)
 	motor("Hip" .. side, body, thigh, at(sx * 1.15, -0.3, 1.1))
-	loft(thigh, {
+	local thighFrames = loft(thigh, {
 		ring(sx * 1.15, 0.3, 1.2, 0.85, 0.95),
 		ring(x, -1.1, 0.8, 0.95, 1.0),
 		ring(sx * 1.4, -2.4, 0.3, 0.55, 0.6),
@@ -734,6 +768,9 @@ for _, sx in { -1, 1 } do
 		end
 		return COLORS.back
 	end, false)
+	-- écailles sur le côté extérieur de la cuisse
+	local outer = sx > 0 and 0 or 180
+	scales(thigh, thighFrames, 1.2, 2.8, 5, outer - 60, outer + 60, 4, 0.24, 1)
 
 	local kx = sx * 1.4
 	local shin = bone("Shin" .. side, kx, -2.4, 0.3)
@@ -790,6 +827,7 @@ for k = 1, 5 do
 	end, k == 5 and 0 or false)
 	if HIGH then
 		spikeRow(seg, fr, 1.05, 1.95, 3, 0.6 - k * 0.07, 1, { COLORS.red, COLORS.ink, COLORS.petal })
+		scales(seg, fr, 1.0, 2.0, 4, 15, 165, 5, 0.26 - k * 0.03, 1)
 		for _, side in { -1, 1 } do
 			for j = 0, 1 do
 				local u = 0.3 + j * 0.45

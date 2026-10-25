@@ -17,10 +17,10 @@ Il faut **Roblox Studio sur ordinateur**, connecté à ton compte.
    Dans les réglages d'import, laisse **Fusionner les maillages** (Merge Meshes) **décoché**, puis clique sur **Importer**.
 3. Menu **Affichage** (View), puis **Barre de commande** (Command Bar).
 4. Copie tout le contenu de [`KirasaRig.lua`](KirasaRig.lua), colle-le dans la barre de commande, puis appuie sur **Entrée**.
-   Le script retrouve les 116 morceaux importés, leur donne leurs couleurs, construit le squelette et ajoute les animations.
+   Le script retrouve les 133 morceaux importés, leur donne leurs couleurs, construit le squelette et ajoute les animations.
 5. Clique sur **Jouer** (Play) pour la voir bouger. Avec **Exécuter** (Run), elle reste immobile, car les animations sont calculées chez le joueur.
 
-Kirasa est alors faite de 116 morceaux de maillage (environ 5 500 triangles, avec relief sculpté, écailles du ventre et rangées d'épines) : ça reste léger pour le jeu.
+Kirasa est alors faite de 133 morceaux de maillage (environ 5 300 triangles, avec grandes facettes sculptées, écailles en relief sur le dos et rangées d'épines) : ça reste léger pour le jeu.
 
 Si le script affiche « je ne trouve pas le morceau… », l'import a sûrement fusionné les maillages : supprime le modèle importé et recommence l'étape 2 avec **Fusionner les maillages** décoché.
 
