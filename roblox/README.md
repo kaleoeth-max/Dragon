@@ -1,21 +1,32 @@
 # Kirasa pour Roblox (low poly)
 
-Kirasa est un dragon debout à long cou, en vraies facettes low poly : chaque facette est un triangle fait de deux WedgeParts (environ 1 700 pièces). Les ailes gardent leurs lames pointues.
+Kirasa est un dragon debout à long cou, en facettes low poly, avec des ailes à lames.
 Elle est animée : **repos**, **marche**, **décollage**, **vol** (battements et vol plané), **atterrissage**.
 Au repos, elle fait des actions au hasard : **rugir** (elle ouvre la gueule), **s'étirer** (avec un bâillement), **regarder autour d'elle**, **secouer la tête**.
 
 ![Aperçu : repos, rugissement, marche, vol](apercu.png)
 
-Le bloc jaune sur l'aperçu a la taille d'un avatar Roblox (5 studs).
-
 ![Gros plan](apercu-detail.png)
 
-## Installation (Roblox Studio sur ordinateur)
+## Installation recommandée : modèle 3D (sans aucune jointure)
 
-1. Ouvre ton jeu dans **Roblox Studio**.
-2. Menu **Affichage** (View), puis **Barre de commande** (Command Bar).
-3. Copie tout le contenu de [`KirasaBuilder.lua`](KirasaBuilder.lua), colle-le dans la barre de commande, puis appuie sur **Entrée**.
-4. Kirasa apparaît devant la caméra. Clique sur **Jouer** (Play) pour la voir bouger. Avec **Exécuter** (Run), elle reste immobile, car les animations sont calculées chez le joueur.
+Il faut **Roblox Studio sur ordinateur**, connecté à ton compte.
+
+1. Télécharge [`Kirasa.obj`](Kirasa.obj) (bouton « Download raw file » sur GitHub).
+2. Dans Roblox Studio, ouvre l'outil **Importer 3D** (Import 3D), puis choisis `Kirasa.obj`.
+   Dans les réglages d'import, laisse **Fusionner les maillages** (Merge Meshes) **décoché**, puis clique sur **Importer**.
+3. Menu **Affichage** (View), puis **Barre de commande** (Command Bar).
+4. Copie tout le contenu de [`KirasaRig.lua`](KirasaRig.lua), colle-le dans la barre de commande, puis appuie sur **Entrée**.
+   Le script retrouve les 86 morceaux importés, leur donne leurs couleurs, construit le squelette et ajoute les animations.
+5. Clique sur **Jouer** (Play) pour la voir bouger. Avec **Exécuter** (Run), elle reste immobile, car les animations sont calculées chez le joueur.
+
+Kirasa est alors faite de 86 morceaux de maillage (environ 1 500 triangles) : c'est léger pour le jeu.
+
+Si le script affiche « je ne trouve pas le morceau… », l'import a sûrement fusionné les maillages : supprime le modèle importé et recommence l'étape 2 avec **Fusionner les maillages** décoché.
+
+## Autre installation : pièces Roblox (sans import)
+
+Colle tout [`KirasaBuilder.lua`](KirasaBuilder.lua) dans la barre de commande. Kirasa est alors construite avec environ 1 700 pièces Roblox. C'est plus lourd, et on voit de fines lignes entre les triangles.
 
 ## Réglages
 
@@ -30,15 +41,16 @@ Sélectionne le modèle `Kirasa` dans l'Explorer, puis change ses **attributs** 
 | `WanderRadius` | Distance maximale autour de son point de départ. |
 | `FlyHeight` | Hauteur de vol. |
 
-Kirasa mesure environ 26 studs de haut (`SCALE = 2`). Pour un dragon plus grand ou plus petit, change `SCALE` en haut de `KirasaBuilder.lua` avant de le coller.
+Pour changer ses couleurs, modifie le tableau `COLORS` en haut de `KirasaRig.lua` avant de le coller (`back` pour le dos, `belly` pour le ventre, `red` pour les marques…).
 
-Pour changer ses couleurs, modifie le tableau `COLORS` en haut du fichier (`back` pour le dos, `belly` pour le ventre, `red` pour les marques…).
-
-Avec environ 1 700 pièces, c'est un modèle lourd : un ou deux dragons dans un jeu, ça va, mais pas des dizaines.
+Kirasa mesure environ 26 studs de haut. Pour la changer de taille, utilise l'outil Échelle (Scale) de Studio sur le modèle importé **avant** de coller `KirasaRig.lua`.
 
 ## Fichiers
 
-- `KirasaBuilder.lua` : le fichier à coller, généré à partir des sources (`python3 make.py`).
-- `src/build.lua` : construction du modèle.
+- `Kirasa.obj` + `KirasaRig.lua` : version maillage 3D, générés par `python3 make.py`.
+- `KirasaBuilder.lua` : version en pièces Roblox, générée par `python3 make.py`.
+- `src/build.lua` : la forme du dragon (anneaux, facettes, pointes), utilisée par les deux versions.
+- `src/rig.lua` : assemblage du modèle importé (couleurs, squelette, scripts).
 - `src/brain.server.lua` : script serveur, il choisit où elle va, quand elle vole et quelle action elle fait.
 - `src/pose.client.lua` : script client, il calcule les animations chez chaque joueur pour qu'elles soient fluides.
+- `tools/` : imitation minimale de Roblox pour lancer `build.lua` hors de Studio et exporter le maillage (`make.py` utilise l'interpréteur `luau`).

@@ -36,6 +36,13 @@ local groundY = hit and hit.Position.Y or 0
 local base = Vector3.new(spot.X, groundY + 5 * S, spot.Z)
 local ROOT = CFrame.lookAt(base, Vector3.new(cam.CFrame.Position.X, base.Y, cam.CFrame.Position.Z))
 
+-- Export du maillage (Kirasa.obj) : seulement quand make.py lance ce fichier hors de Roblox
+local EXPORT = KIRASA_EXPORT
+if EXPORT then
+	ROOT = CFrame.new()
+	EXPORT.colors = COLORS
+end
+
 local function V(x, y, z)
 	return Vector3.new(x, y, z)
 end
@@ -95,6 +102,10 @@ end
 -- sa face extérieure reste sur le triangle et les facettes voisines se recouvrent sans fente.
 local function tri(a, b, c, color, attachTo, inside, depth)
 	a, b, c = a * S, b * S, c * S
+	if EXPORT then
+		table.insert(EXPORT, { bone = attachTo.Name, color = color, a = a, b = b, c = c, inside = inside and inside * S })
+		return
+	end
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	if abd > acd and abd > bcd then
@@ -242,8 +253,8 @@ end
 for i = 0, 4 do
 	local a = -1.2 + i * 0.6
 	local x, y = math.sin(a) * 0.95, 1.75 - math.cos(a) * 0.75
-	plate(body, x, y, -2.45, 0.42, 0.6, a, 5, COLORS.petal)
-	plate(body, x * 1.05, y - 0.08, -2.5, 0.2, 0.28, a, 4, COLORS.red)
+	plate(body, x, y, -2.25, 0.42, 0.6, a, 5, COLORS.petal)
+	plate(body, x * 1.05, y - 0.08, -2.3, 0.2, 0.28, a, 4, COLORS.red)
 end
 
 ---------------------------------------------------------------- cou et tête
@@ -332,8 +343,12 @@ for _, sx in { -1, 1 } do
 		plate(ear, cx, cy, z, rx, ry, rot, 6, COLORS.petal)
 		plate(ear, cx + sx * 0.08, cy + 0.08, z - 0.06, rx * 0.5, ry * 0.5, rot, 5, COLORS.red)
 	end
-	lobe(sx * 1.6, 7.25, 0.75, 1.05, -sx * 0.55, -1.7)
-	lobe(sx * 1.9, 6.35, 0.55, 0.8, -sx * 1.45, -1.6)
+	-- attache qui relie les collerettes à la tête
+	loft(ear, { ring(sx * 0.3, 6.55, -1.85, 0.3, 0.3), ring(sx * 1.1, 6.85, -1.75, 0.22, 0.22) }, 4, UP, function()
+		return COLORS.back
+	end, 0.15)
+	lobe(sx * 1.45, 7.35, 0.7, 1.0, -sx * 0.55, -1.75)
+	lobe(sx * 1.65, 6.45, 0.5, 0.75, -sx * 1.45, -1.7)
 end
 
 ---------------------------------------------------------------- ailes
