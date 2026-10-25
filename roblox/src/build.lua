@@ -186,7 +186,7 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 	local nOrig, src = #rings, nil
 	local relief = HIGH and math.min(rings[1].w, rings[1].h) > 0.25
 	local profiled = rings[1].shape ~= nil
-	if HIGH then
+	if HIGH and not rings[1].coarse then
 		rings, src = refine(rings, 2)
 		if not profiled then
 			sides += math.floor(sides / 2)
@@ -214,7 +214,7 @@ local function loft(attachTo, rings, sides, ref, paint, tip)
 			local bump = 1
 			if relief then
 				-- petites irrégularités sculptées, et écailles du ventre un anneau sur deux
-				bump = 1 + (hash(i, k) - 0.5) * (profiled and 0.06 or 0.16)
+				bump = 1 + (hash(i, k) - 0.5) * (profiled and 0.12 or 0.16)
 				if not profiled and cy < -0.5 and i % 2 == 0 then
 					bump += 0.05
 				end
@@ -484,6 +484,7 @@ local headRings = {}
 for _, r in HEAD do
 	table.insert(headRings, { p = V(0, r[2], r[1]), w = r[3], h = r[4], shape = headShape(r[5]) })
 end
+headRings[1].coarse = true -- grandes facettes bien visibles sur le visage
 local HEAD_COLORS = {
 	top = COLORS.back, brow = COLORS.ink, side = COLORS.back, cheek = COLORS.back,
 	low = COLORS.belly, lip = COLORS.ink, roof = COLORS.redDark,
@@ -498,6 +499,9 @@ local headFrames = loft(head, headRings, 0, UP, function(i, _, tag)
 end, 0.25)
 if HIGH then
 	spikeRow(head, headFrames, 1.0, 2.8, 4, 0.45, -1, { COLORS.ink, COLORS.red })
+	-- écailles sur le crâne et le museau
+	scales(head, headFrames, 1.3, 2.6, 4, 25, 155, 6, 0.22, -1)
+	scales(head, headFrames, 3.2, 5.6, 6, 30, 150, 4, 0.17, -1)
 end
 -- cornes du nez
 spike(head, headPoint(-4.45, 0, 0.95), headPoint(-4.2, 0, 2.2), 0.12, COLORS.red, COLORS.ink)
@@ -522,6 +526,7 @@ for j, z in { -2.0, -2.6, -3.4, -4.2, -4.85, -5.25 } do
 	local lip = cy - 0.72 * h - 0.02
 	table.insert(jawRings, { p = V(0, lip - 0.4 * hj, z), w = w * 0.92, h = hj, shape = jawShape })
 end
+jawRings[1].coarse = true
 local JAW_COLORS = { floor = COLORS.redDark, lip = COLORS.ink, side = COLORS.belly, under = COLORS.belly }
 loft(jaw, jawRings, 0, UP, function(_, _, tag)
 	return JAW_COLORS[tag]
@@ -585,6 +590,25 @@ for _, sx in { -1, 1 } do
 		end
 		spike(jaw, jawPoint(-2.9, sx * 0.35, -0.9), jawPoint(-2.6, sx * 0.5, -2.4), 0.07, COLORS.ink)
 		spike(jaw, jawPoint(-3.5, sx * 0.3, -0.95), jawPoint(-3.3, sx * 0.4, -2.1), 0.05, COLORS.ink)
+	end
+	if HIGH then
+		-- bosses le long de la pommette et de la mâchoire, rides devant l'œil
+		for j = 0, 4 do
+			local z = -2.3 - j * 0.42
+			local b = headPoint(z, sx * 1.0, 0.15)
+			spike(head, b - V(sx * 0.03, 0, 0), b + V(sx * 0.13, 0.04, 0.12), 0.08, COLORS.backShade, COLORS.back)
+			local jb = jawPoint(z - 0.2, sx * 1.0, -0.2)
+			spike(jaw, jb - V(sx * 0.03, 0, 0), jb + V(sx * 0.1, -0.03, 0.1), 0.06, COLORS.bellyShade)
+		end
+		for j = 0, 1 do
+			local b = headPoint(-3.5 - j * 0.25, sx * 0.9, 0.55 - j * 0.1)
+			spike(head, b, b + V(sx * 0.1, 0.02, 0.18), 0.04, COLORS.ink)
+		end
+		-- arête du nez
+		for j = 0, 3 do
+			local b = headPoint(-4.7 - j * 0.15, sx * 0.25, 0.9)
+			spike(head, b, b + V(sx * 0.03, 0.08, 0.1), 0.05, COLORS.backShade)
+		end
 	end
 	local cheek = headPoint(-2.4, sx * 0.95, 0.0)
 	spike(head, cheek, cheek + V(sx * 0.75, -0.05, 0.95), 0.16, COLORS.back, COLORS.ink)
