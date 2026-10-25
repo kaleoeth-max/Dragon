@@ -1,6 +1,6 @@
 # Kirasa pour Roblox (low poly)
 
-Kirasa est construite avec environ 340 pièces Roblox. Le corps, la tête, les pattes, la queue, les pétales et les collerettes sont arrondis (ellipsoïdes), et les ailes gardent leurs lames pointues : pas de mesh à importer.
+Kirasa est un dragon debout à long cou, en vraies facettes low poly : chaque facette est un triangle fait de deux WedgeParts (environ 1 700 pièces). Les ailes gardent leurs lames pointues.
 Elle est animée : **repos**, **marche**, **décollage**, **vol** (battements et vol plané), **atterrissage**.
 Au repos, elle fait des actions au hasard : **rugir** (elle ouvre la gueule), **s'étirer** (avec un bâillement), **regarder autour d'elle**, **secouer la tête**.
 
@@ -30,7 +30,11 @@ Sélectionne le modèle `Kirasa` dans l'Explorer, puis change ses **attributs** 
 | `WanderRadius` | Distance maximale autour de son point de départ. |
 | `FlyHeight` | Hauteur de vol. |
 
-Kirasa mesure environ 25 studs de haut (`SCALE = 2`). Pour un dragon plus grand ou plus petit, change `SCALE` en haut de `KirasaBuilder.lua` avant de le coller.
+Kirasa mesure environ 26 studs de haut (`SCALE = 2`). Pour un dragon plus grand ou plus petit, change `SCALE` en haut de `KirasaBuilder.lua` avant de le coller.
+
+Pour changer ses couleurs, modifie le tableau `COLORS` en haut du fichier (`back` pour le dos, `belly` pour le ventre, `red` pour les marques…).
+
+Avec environ 1 700 pièces, c'est un modèle lourd : un ou deux dragons dans un jeu, ça va, mais pas des dizaines.
 
 ## Fichiers
 

@@ -158,10 +158,9 @@ end)
 
 ---------------------------------------------------------------- application
 local function applyPose(p, t)
-	-- le cou penche vers l'avant au repos, la tête compense
 	setJoint("BodyJoint", CFrame.new(0, p.bob, 0) * CFrame.Angles(p.pitch, 0, p.roll))
-	setJoint("NeckJoint", CFrame.Angles(p.neck - 0.22, 0, 0))
-	setJoint("HeadJoint", CFrame.Angles(p.head + 0.18, p.headYaw, 0))
+	setJoint("NeckJoint", CFrame.Angles(p.neck, 0, 0))
+	setJoint("HeadJoint", CFrame.Angles(p.head, p.headYaw, 0))
 	setJoint("JawJoint", CFrame.Angles(-p.jaw, 0, 0))
 	setJoint("EarJointL", CFrame.Angles(0, 0, p.flick))
 	setJoint("EarJointR", CFrame.Angles(0, 0, -p.flick * 0.7))
