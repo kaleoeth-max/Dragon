@@ -300,6 +300,38 @@ local function spike(attachTo, from, to, w, color, tipColor)
 	end
 end
 
+-- Éclat : lame plate et anguleuse (écaille dressée, lame de crête). « flat » donne la direction
+-- de sa largeur ; l'éclat a une arête au milieu pour bien accrocher la lumière.
+local function flake(attachTo, from, to, w, flat, color, tipColor)
+	local d = (to - from).Unit
+	local side = (flat - d * d:Dot(flat))
+	if side.Magnitude < 1e-3 then
+		side = d:Cross(refFor(d))
+	end
+	side = side.Unit
+	local n = d:Cross(side).Unit
+	local b1, b2 = from + side * w, from - side * w
+	local mid = from + (to - from) * 0.35
+	local r1, r2 = mid + n * (w * 0.35), mid - n * (w * 0.35)
+	local inside = from + (to - from) * 0.25
+	local depth = w * 0.3
+	for _, f in { { b1, r1, to }, { r1, b2, to }, { b2, r2, to }, { r2, b1, to } } do
+		tri(f[1], f[2], f[3], (f[3] == to and tipColor and f[1] == r1) and tipColor or color, attachTo, inside, depth)
+	end
+end
+
+-- Vrille souple (moustaches) : un fin tube qui suit des points
+local function tendril(attachTo, pts, r0, r1, color)
+	local rings = {}
+	for j, q in pts do
+		local r = r0 + (r1 - r0) * (j - 1) / (#pts - 1)
+		table.insert(rings, { p = q, w = r, h = r })
+	end
+	loft(attachTo, rings, 4, refFor(pts[#pts] - pts[1]), function()
+		return color
+	end, r1 * 4)
+end
+
 -- Plaque plate à facettes dans le plan de face (pétales, lobes), légèrement bombée
 local function plate(attachTo, cx, cy, cz, rx, ry, rot, n, color)
 	local center = V(cx, cy, cz - math.min(rx, ry) * 0.25)
@@ -503,9 +535,18 @@ if HIGH then
 	scales(head, headFrames, 1.3, 2.6, 4, 25, 155, 6, 0.22, -1)
 	scales(head, headFrames, 3.2, 5.6, 6, 30, 150, 4, 0.17, -1)
 end
--- cornes du nez
-spike(head, headPoint(-4.45, 0, 0.95), headPoint(-4.2, 0, 2.2), 0.12, COLORS.red, COLORS.ink)
-spike(head, headPoint(-3.75, 0, 0.95), headPoint(-3.55, 0, 1.6), 0.08, COLORS.ink)
+-- grosse corne recourbée au bout du museau, et une plus petite derrière
+do
+	local b = headPoint(-4.85, 0, 0.85)
+	loft(head, {
+		{ p = b, w = 0.24, h = 0.3 },
+		{ p = b + V(0, 0.45, 0.05), w = 0.17, h = 0.2 },
+		{ p = b + V(0, 0.85, 0.3), w = 0.1, h = 0.12 },
+	}, 4, BACK, function(i)
+		return i == 1 and COLORS.back or COLORS.petal
+	end, 0.35)
+	flake(head, headPoint(-4.1, 0, 0.95), headPoint(-3.75, 0, 2.0), 0.16, BACK, COLORS.petal, COLORS.ink)
+end
 
 -- mâchoire : lèvre noire qui suit celle du haut, menton, plancher de la gueule rouge foncé
 local jaw = bone("Jaw", 0, 5.95, -2.0)
@@ -553,7 +594,7 @@ for _, sx in { -1, 1 } do
 	local upper = HIGH and { -2.7, -3.0, -3.3, -3.6, -3.9, -4.2, -4.55, -4.85, -5.1 } or { -3.0, -3.6, -4.2, -4.55, -5.0 }
 	for _, z in upper do
 		local fang = math.abs(z + 4.55) < 0.01
-		local len = fang and 0.48 or (z < -4.7 and 0.16 or 0.22)
+		local len = fang and 0.62 or (z < -4.7 and 0.2 or 0.3)
 		local base = headPoint(z, sx * 0.6, -0.76)
 		spike(head, base + V(0, 0.08, 0), base + V(-sx * 0.02, -len, fang and 0.08 or 0), fang and 0.09 or 0.055, COLORS.claw)
 	end
@@ -561,7 +602,7 @@ for _, sx in { -1, 1 } do
 	local lower = HIGH and { -2.9, -3.25, -3.6, -3.95, -4.3, -4.75 } or { -3.2, -3.9, -4.75 }
 	for _, z in lower do
 		local fang = math.abs(z + 4.75) < 0.01
-		local len = fang and 0.38 or 0.17
+		local len = fang and 0.5 or 0.24
 		local base = jawPoint(z, sx * 0.5, 0.3)
 		spike(jaw, base - V(0, 0.06, 0), base + V(0, len, fang and -0.05 or 0), fang and 0.08 or 0.05, COLORS.claw)
 	end
@@ -614,6 +655,38 @@ for _, sx in { -1, 1 } do
 	spike(head, cheek, cheek + V(sx * 0.75, -0.05, 0.95), 0.16, COLORS.back, COLORS.ink)
 	local cheek2 = headPoint(-2.8, sx * 0.9, -0.4)
 	spike(head, cheek2, cheek2 + V(sx * 0.65, -0.25, 0.8), 0.12, COLORS.back, COLORS.ink)
+
+	-- éclats anguleux sur les joues et le long de la mâchoire, pointés vers l'arrière
+	if HIGH then
+		for row, y in { 0.35, 0.0, -0.35 } do
+			for j = 0, 3 do
+				local z = -2.35 - j * 0.42 - (row % 2) * 0.2
+				local b = headPoint(z, sx * (1.0 - row * 0.03), y)
+				local len = 0.85 - j * 0.12
+				flake(head, b - V(sx * 0.05, 0, 0), b + V(sx * len * 0.4, -0.08 * row, len), 0.18, UP,
+					(j + row) % 3 == 0 and COLORS.petal or COLORS.backShade, COLORS.ink)
+			end
+		end
+		for j = 0, 4 do
+			local z = -2.3 - j * 0.45
+			local b = jawPoint(z, sx * 0.8, -0.75)
+			local len = 0.85 - j * 0.1
+			flake(jaw, b, b + V(sx * len * 0.3, -len * 0.55, len * 0.8), 0.15, UP, COLORS.bellyShade, COLORS.petal)
+		end
+		-- longues moustaches qui pendent de la mâchoire et du museau
+		local w0 = jawPoint(-4.2, sx * 0.95, -0.3)
+		tendril(jaw, { w0, w0 + V(sx * 0.35, -0.55, 0.5), w0 + V(sx * 0.6, -1.3, 1.6), w0 + V(sx * 0.75, -1.7, 3.1) },
+			0.07, 0.025, COLORS.petal)
+		local w1 = headPoint(-4.7, sx * 0.85, -0.4)
+		tendril(head, { w1, w1 + V(sx * 0.4, -0.2, 0.5), w1 + V(sx * 0.7, -0.7, 1.4), w1 + V(sx * 0.85, -1.2, 2.3) },
+			0.05, 0.02, COLORS.petal)
+	end
+	-- grandes lames de crête qui partent de l'arcade vers l'arrière
+	for j, z in { -2.95, -2.45, -1.95 } do
+		local b = headPoint(z, sx * 0.75, 0.95)
+		flake(head, b, b + V(sx * (0.4 + j * 0.1), 1.05 + j * 0.35, 1.25 + j * 0.5), 0.28 + j * 0.05,
+			V(0, 0, 1), COLORS.petal, COLORS.lilac)
+	end
 
 	-- cornes balayées vers l'arrière, rouges à la base et blanches au bout
 	local hornRings = {}
