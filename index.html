@@ -1,0 +1,455 @@
+<title>Kirasa, dragon lame-pétale</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600&display=swap">
+<style>
+  /* Layout: one night-sky stage, the dragon centred on it, animation switches in a row beneath. Single dark look on purpose. */
+  :root {
+    --night: #0c1230;
+    --panel: #161d44;
+    --lilac: #cfc6f7;
+    --petal: #ece7fb;
+    --blood: #e0213b;
+    --ink: #f3f0ff;
+    --muted: #9d97c9;
+    --display: "Bungee", "Impact", system-ui, sans-serif;
+    --body: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { background: var(--night); color: var(--ink); }
+  body {
+    font-family: var(--body);
+    font-size: 15px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 20px 32px;
+  }
+  main { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 20px; }
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(28px, 6vw, 48px);
+    line-height: 1;
+    margin: 0;
+    letter-spacing: 0.02em;
+    color: var(--petal);
+    text-shadow: 3px 3px 0 var(--blood);
+    text-wrap: balance;
+  }
+  .tag { color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 72vh;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 3px solid #05060f;
+    box-shadow: 0 0 0 1px var(--panel);
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .modes { display: flex; flex-wrap: wrap; gap: 10px; }
+  .modes button {
+    flex: 1 1 140px;
+    display: grid;
+    gap: 2px;
+    text-align: left;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--panel);
+    background: var(--panel);
+    color: var(--ink);
+    font: 600 16px var(--body);
+    cursor: pointer;
+  }
+  .modes button small { font-weight: 400; font-size: 12px; color: var(--muted); }
+  .modes button[aria-pressed="true"] { border-color: var(--blood); background: #2a1631; }
+  .modes button:hover { border-color: var(--lilac); }
+  .modes button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+  kbd { font-family: var(--body); font-size: 11px; border: 1px solid var(--muted); border-radius: 4px; padding: 0 5px; color: var(--muted); }
+</style>
+
+<main>
+  <header>
+    <h1>Kirasa</h1>
+    <p class="tag">Dragon lame-pétale · rouge sang &amp; lilas</p>
+  </header>
+
+  <div class="stage"><canvas id="scene" aria-label="Le dragon Kirasa animé"></canvas></div>
+
+  <div class="modes" role="group" aria-label="Animation">
+    <button id="mode-idle" data-mode="idle" aria-pressed="true">Repos <small>Respire, cligne des yeux, agite ses collerettes · <kbd>1</kbd></small></button>
+    <button id="mode-walk" data-mode="walk" aria-pressed="false">Marche <small>Ailes repliées, avance vers toi · <kbd>2</kbd></small></button>
+    <button id="mode-fly" data-mode="fly" aria-pressed="false">Vol <small>Battements d'ailes, pattes rentrées · <kbd>3</kbd></small></button>
+  </div>
+</main>
+
+<script>
+(() => {
+  const C = {
+    line: '#140f1f', body: '#ece7fb', shade: '#b9afe2', red: '#d3122e',
+    redDark: '#8c0b1f', eye: '#ff7b1c', claw: '#f6f3ff'
+  };
+  const LW = 6;
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const slow = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0.5 : 1;
+
+  let W = 0, H = 0, dpr = 1;
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+  new ResizeObserver(resize).observe(canvas);
+  resize();
+
+  // ---------- decor ----------
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const stars = Array.from({ length: 90 }, () => ({ x: rnd(), y: rnd() * 0.45, r: 0.6 + rnd() * 1.4, p: rnd() * 6 }));
+  const clouds = Array.from({ length: 7 }, () => ({ x: rnd(), y: 0.08 + rnd() * 0.3, s: 0.6 + rnd() * 0.9, v: 0.004 + rnd() * 0.006 }));
+
+  function drawSky(t, groundPhase, speed) {
+    const hz = H * 0.52;
+    const g = ctx.createLinearGradient(0, 0, 0, hz);
+    g.addColorStop(0, '#0d1638');
+    g.addColorStop(0.6, '#1d3f9a');
+    g.addColorStop(1, '#2f8ae8');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, hz + 2);
+
+    const glow = ctx.createRadialGradient(0, hz * 0.95, 0, 0, hz * 0.95, W * 0.45);
+    glow.addColorStop(0, 'rgba(140, 240, 255, 0.85)');
+    glow.addColorStop(1, 'rgba(140, 240, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, hz);
+
+    for (const s of stars) {
+      ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(t * 0.8 + s.p));
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    for (const c of clouds) {
+      c.x += c.v * speed;
+      if (c.x > 1.25) c.x = -0.25;
+      const cx = c.x * W, cy = c.y * H, r = 26 * c.s * (W / 900);
+      ctx.fillStyle = 'rgba(176, 160, 245, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r * 2.2, r * 0.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx - r, cy - r * 0.4, r, r * 0.7, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + r * 0.7, cy - r * 0.5, r * 1.2, r * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // mesas
+    ctx.fillStyle = '#8b74c9';
+    ctx.fillRect(W * 0.62, hz - H * 0.3, W * 0.22, H * 0.32);
+    ctx.fillStyle = '#7a63b8';
+    ctx.fillRect(W * 0.7, hz - H * 0.14, W * 0.32, H * 0.16);
+    ctx.fillStyle = '#9b2f3c';
+    ctx.fillRect(W * 0.88, hz - H * 0.2, W * 0.14, H * 0.22);
+    ctx.fillStyle = '#2f7d3b';
+    ctx.fillRect(W * 0.86, hz - H * 0.215, W * 0.16, H * 0.018);
+    ctx.fillStyle = '#c0694f';
+    ctx.beginPath();
+    ctx.moveTo(0, hz - H * 0.04); ctx.lineTo(W * 0.2, hz - H * 0.05); ctx.lineTo(W * 0.24, hz + 4); ctx.lineTo(0, hz + 4);
+    ctx.fill();
+
+    // ground bands scrolling toward the viewer
+    const N = 14, F = Math.floor(groundPhase), frac = groundPhase - F;
+    for (let i = -1; i < N; i++) {
+      const a = Math.max(0, (i + frac) / N), b = (i + 1 + frac) / N;
+      const y0 = hz + (H - hz) * a * a, y1 = hz + (H - hz) * b * b;
+      ctx.fillStyle = (((i - F) % 2) + 2) % 2 ? '#2d7a33' : '#276d2d';
+      ctx.fillRect(0, y0, W, y1 - y0 + 1);
+    }
+  }
+
+  // ---------- drawing helpers (dragon units) ----------
+  function path(pts) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+  }
+  function shape(fill, lw = LW) {
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (lw) { ctx.lineWidth = lw; ctx.strokeStyle = C.line; ctx.stroke(); }
+  }
+  function poly(pts, fill, lw = LW) { path(pts); shape(fill, lw); }
+  function oval(x, y, rx, ry, rot, fill, lw = LW) {
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
+    shape(fill, lw);
+  }
+  function bone(x1, y1, x2, y2, w, fill) {
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = C.line; ctx.lineWidth = w + LW * 2; ctx.stroke();
+    ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.stroke();
+  }
+
+  // ---------- dragon parts ----------
+  function wing(side, p) {
+    ctx.save();
+    ctx.translate(side * 55 + p.swayX, -222 + p.bodyY);
+    ctx.scale(side, 1);
+    ctx.rotate(p.wingRot);
+    const fold = p.wingFold;
+    const ex = 150 - fold * 55, ey = -30 - fold * 45;
+
+    // flat membrane panel near the body
+    poly([[0, -12], [ex, ey], [ex - 25, ey + 135 - fold * 60], [8, 95]], C.shade);
+    poly([[10, 60], [ex - 40, ey + 95 - fold * 40], [ex - 30, ey + 118 - fold * 50], [12, 88]], C.line, 0);
+
+    // long blade feathers, back to front
+    for (let i = 3; i >= 0; i--) {
+      const a = 0.22 + i * (0.25 - fold * 0.13) + p.fan * (i + 1);
+      const L = (345 - i * 45) * (1 - fold * 0.45);
+      const bx = ex - i * 16, by = ey + i * 8;
+      const dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, w = 26;
+      const P = (along, across) => [bx + dx * L * along + nx * w * across, by + dy * L * along + ny * w * across];
+      poly([P(0, 0.6), P(0.55, 1), P(1, 0), P(0.5, -0.85), P(0, -0.6)], C.body);
+      poly([P(0.12, -0.55), P(0.5, -0.8), P(1, 0), P(0.6, -0.2), P(0.3, -0.35)], C.line, 0);
+      poly([P(0.02, 0.5), P(0.24, 0.75), P(0.3, 0.1), P(0.06, -0.3)], C.red, 0);
+      poly([P(0.35, 0.65), P(0.62, 0.5), P(0.42, 0.35)], C.line, 0);
+    }
+
+    // arm bone with chevron stripes and a wrist claw
+    poly([[ex - 6, ey - 10], [ex + 18, ey - 40], [ex + 12, ey - 6]], C.claw, 4);
+    poly([[0, -24], [ex, ey - 15], [ex + 20, ey + 2], [ex, ey + 15], [0, 24]], C.red);
+    for (let k = 1; k <= 3; k++) {
+      const f = k / 4, x = ex * f, y = ey * f;
+      poly([[x - 8, y - 18], [x + 6, y - 2], [x - 8, y + 16], [x - 2, y - 2]], C.line, 0);
+    }
+    ctx.restore();
+  }
+
+  function tail(p) {
+    const bx = p.swayX, by = -100 + p.bodyY;
+    const ex = 165 + p.tail * 35, ey = -35 - p.tail * 25;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(70 + p.tail * 40, 5, ex, ey);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 34; ctx.stroke();
+    ctx.strokeStyle = C.shade; ctx.lineWidth = 22; ctx.stroke();
+    poly([[ex - 12, ey - 12], [ex + 48, ey - 26 - p.tail * 10], [ex + 10, ey + 16]], C.body);
+    poly([[ex + 4, ey - 10], [ex + 40, ey - 22 - p.tail * 10], [ex + 8, ey + 4]], C.red, 0);
+  }
+
+  function leg(side, lift, p) {
+    const hx = side * 34 + p.swayX, hy = -112 + p.bodyY;
+    const fx = side * (44 - p.tuck * 10), fy = -lift - p.tuck * 50;
+    const kx = (hx + fx) / 2 + side * 16, ky = (hy + fy) / 2 - 6;
+    bone(kx, ky, fx, fy - 8, 16, '#2a2238');
+    bone(hx, hy, kx, ky, 28, C.red);
+    poly([[hx - 8, hy - 4], [kx + side * 4, ky - 2], [hx + side * 2, hy + 14]], C.line, 0);
+    ctx.save();
+    ctx.translate(fx, fy);
+    poly([[-20, 0], [-13, -15], [13, -15], [20, 0]], '#2a2238', 5);
+    for (const x of [-14, 0, 14]) poly([[x - 5, -2], [x + 5, -2], [x, 10]], C.claw, 3);
+    ctx.restore();
+  }
+
+  function torso(p) {
+    const x = p.swayX, y = -178 + p.bodyY;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 64, 80, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.body; ctx.fill();
+    ctx.save();
+    ctx.clip();
+    oval(x - 52, y + 10, 26, 70, 0, C.shade, 0);
+    oval(x + 52, y + 10, 26, 70, 0, C.shade, 0);
+    // jagged flank stripes
+    for (const s of [-1, 1]) {
+      poly([[x + s * 66, y - 10], [x + s * 30, y + 8], [x + s * 62, y + 18]], C.line, 0);
+      poly([[x + s * 66, y + 34], [x + s * 36, y + 46], [x + s * 60, y + 56]], C.line, 0);
+    }
+    // two red skull marks on the belly
+    for (const [sx, sy] of [[-17, 38], [17, 50]]) {
+      oval(x + sx, y + sy, 15, 13, 0, C.red, 0);
+      oval(x + sx - 5, y + sy - 2, 3.5, 4.5, 0, C.line, 0);
+      oval(x + sx + 5, y + sy - 2, 3.5, 4.5, 0, C.line, 0);
+      poly([[x + sx - 6, y + sy + 9], [x + sx + 6, y + sy + 9], [x + sx, y + sy + 15]], C.red, 0);
+    }
+    ctx.restore();
+    ctx.beginPath();
+    ctx.ellipse(x, y, 64, 80, 0, 0, Math.PI * 2);
+    ctx.lineWidth = LW; ctx.strokeStyle = C.line; ctx.stroke();
+  }
+
+  function petal(cx, cy, ang, r, rx, ry) {
+    const px = cx + Math.cos(ang) * r, py = cy + Math.sin(ang) * r;
+    oval(px, py, rx, ry, ang, C.body);
+    oval(px + Math.cos(ang) * rx * 0.25, py + Math.sin(ang) * rx * 0.25, rx * 0.45, ry * 0.5, ang, C.red, 0);
+  }
+
+  function ruff(p) {
+    const cx = p.swayX, cy = -214 + p.bodyY;
+    for (let k = 0; k < 7; k++) petal(cx, cy, Math.PI * (0.06 + k * 0.147), 58, 28, 19);
+    for (let k = 0; k < 4; k++) petal(cx, cy, Math.PI * (0.25 + k * 0.167), 30, 23, 16);
+  }
+
+  function frill(side, flick) {
+    ctx.save();
+    ctx.scale(side, 1);
+    ctx.translate(26, -78);
+    ctx.rotate(-0.35 - flick);
+    // lower lobe
+    oval(52, 34, 40, 28, 0.35, C.body, 7);
+    oval(56, 36, 20, 13, 0.35, C.red, 0);
+    oval(78, 46, 5, 5, 0, C.red, 0);
+    // upper lobe
+    oval(42, -26, 52, 40, -0.55, C.body, 7);
+    oval(48, -28, 28, 18, -0.55, C.red, 0);
+    oval(76, -50, 6, 6, 0, C.red, 0);
+    oval(22, -6, 5, 5, 0, C.redDark, 0);
+    // dark notches on the rim
+    poly([[84, -62], [96, -60], [90, -50]], C.line, 0);
+    poly([[90, 52], [96, 40], [86, 42]], C.line, 0);
+    ctx.restore();
+  }
+
+  function head(p, t) {
+    ctx.save();
+    ctx.translate(p.swayX * 1.2, -250 + p.bodyY + p.headBob);
+    ctx.rotate(p.headTilt);
+
+    oval(0, 8, 34, 30, 0, C.body);
+    frill(-1, p.flick);
+    frill(1, p.flick * 0.6);
+    poly([[-9, -88], [0, -138], [9, -88]], C.red);
+
+    oval(0, -55, 50, 44, 0, C.body);
+    ctx.beginPath();
+    ctx.moveTo(-31, -48);
+    ctx.quadraticCurveTo(-34, -10, -12, 8);
+    ctx.quadraticCurveTo(0, 14, 12, 8);
+    ctx.quadraticCurveTo(34, -10, 31, -48);
+    ctx.closePath();
+    shape(C.body);
+    // hide the seam between skull and snout
+    oval(0, -46, 29, 16, 0, C.body, 0);
+
+    poly([[-7, -98], [8, -96], [5, -62], [14, -30], [6, 6], [-8, 4], [-15, -30], [-4, -60]], C.red, 0);
+    poly([[-46, -40], [-30, -46], [-36, -30]], C.line, 0);
+    poly([[46, -40], [30, -46], [36, -30]], C.line, 0);
+    oval(-7, 0, 3, 2.5, 0, C.line, 0);
+    oval(7, 0, 3, 2.5, 0, C.line, 0);
+
+    // eyes with blinking
+    const b = (t * slow) % 3.7;
+    const open = b < 0.16 ? Math.abs(b - 0.08) / 0.08 : 1;
+    for (const s of [-1, 1]) {
+      oval(s * 22, -56, 10, Math.max(1, 8 * open), s * 0.25, C.eye, 4);
+      if (open > 0.3) oval(s * 22, -56, 2, 6 * open, 0, C.line, 0);
+    }
+    ctx.restore();
+  }
+
+  // ---------- animation targets ----------
+  function targets(mode, t) {
+    const flickCycle = t % 4.3;
+    const flick = flickCycle < 0.3 ? Math.sin((flickCycle / 0.3) * Math.PI) * 0.35 : 0;
+    if (mode === 'walk') {
+      const ph = t * 5.5, s = Math.sin(ph);
+      return {
+        bodyY: 4 - Math.abs(s) * 9, flyH: 0, swayX: s * 6,
+        wingRot: -0.3 + Math.sin(ph * 2) * 0.04, wingFold: 0.75, fan: 0,
+        headTilt: s * 0.05, headBob: -Math.abs(s) * 3,
+        legL: Math.max(0, s) * 24, legR: Math.max(0, -s) * 24, tuck: 0,
+        tail: s * 0.6, flick: flick * 0.5
+      };
+    }
+    if (mode === 'fly') {
+      const ph = t * 4.5, f = Math.sin(ph);
+      return {
+        bodyY: 0, flyH: 95 + Math.sin(ph - 1.2) * 14, swayX: 0,
+        wingRot: -0.2 + f * 0.6, wingFold: 0.1 + Math.max(0, -f) * 0.3, fan: -f * 0.03,
+        headTilt: Math.sin(t * 0.8) * 0.04, headBob: Math.sin(ph - 1.6) * 3,
+        legL: 0, legR: 0, tuck: 1,
+        tail: Math.sin(ph * 0.5) * 0.5, flick: 0.15 + f * 0.1
+      };
+    }
+    const br = Math.sin(t * 1.8);
+    return {
+      bodyY: br * 4, flyH: 0, swayX: 0,
+      wingRot: 0.12 + Math.sin(t * 1.1) * 0.05, wingFold: 0, fan: Math.sin(t * 1.1 + 1) * 0.01,
+      headTilt: Math.sin(t * 0.6) * 0.06, headBob: br * 2,
+      legL: 0, legR: 0, tuck: 0,
+      tail: Math.sin(t * 0.9) * 0.4, flick
+    };
+  }
+
+  // ---------- loop ----------
+  let mode = 'idle';
+  let pose = targets('idle', 0);
+  let groundPhase = 0, last = performance.now(), t = 0;
+  const groundSpeed = { idle: 0, walk: 1.1, fly: 2.6 };
+  const cloudSpeed = { idle: 1, walk: 1.6, fly: 4 };
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000) * slow;
+    last = now;
+    t += dt;
+    groundPhase += groundSpeed[mode] * dt;
+
+    const target = targets(mode, t);
+    const k = 1 - Math.pow(0.0015, dt);
+    for (const key in target) pose[key] += (target[key] - pose[key]) * k;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawSky(t, groundPhase, cloudSpeed[mode] * dt * 60);
+
+    const s = Math.min(W / 1100, H / 640);
+    const ox = W / 2, oy = H * 0.88;
+
+    // shadow
+    const lift = pose.flyH;
+    ctx.fillStyle = `rgba(8, 20, 10, ${0.4 - lift / 400})`;
+    ctx.beginPath();
+    ctx.ellipse(ox, oy, 120 * s * (1 - lift / 300), 22 * s * (1 - lift / 300), 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(ox, oy - lift * s);
+    ctx.scale(s, s);
+    ctx.lineJoin = 'round';
+    tail(pose);
+    wing(-1, pose);
+    wing(1, pose);
+    leg(-1, pose.legL, pose);
+    leg(1, pose.legR, pose);
+    torso(pose);
+    ruff(pose);
+    head(pose, t);
+    ctx.restore();
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- controls ----------
+  const buttons = [...document.querySelectorAll('[data-mode]')];
+  function setMode(m) {
+    mode = m;
+    for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.mode === m));
+  }
+  for (const b of buttons) b.addEventListener('click', () => setMode(b.dataset.mode));
+  addEventListener('keydown', (e) => {
+    const m = { '1': 'idle', '2': 'walk', '3': 'fly' }[e.key];
+    if (m) setMode(m);
+  });
+})();
+</script>
