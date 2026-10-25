@@ -91,6 +91,8 @@ local function applyPose(p, t)
 	setJoint("Tail1", CFrame.Angles(p.tailLift, p.tail, 0))
 	setJoint("Tail2", CFrame.Angles(p.tailLift, p.tail2, 0))
 	setJoint("Tail3", CFrame.Angles(p.tailLift, p.tail3, 0))
+	setJoint("Tail4", CFrame.Angles(p.tailLift * 0.5, p.tail3 * 1.15, 0))
+	setJoint("Tail5", CFrame.Angles(p.tailLift * 0.5, p.tail3 * 1.3, 0))
 
 	local blinking = (t % 3.7) < 0.14
 	for _, lid in lids do
